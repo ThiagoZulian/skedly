@@ -1,11 +1,10 @@
-"""Model router — selects the appropriate LLM based on intent complexity."""
+"""Model router — selects the appropriate Gemini model based on intent complexity."""
 
 from enum import StrEnum
 
-from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from src.llm.providers import get_claude_sonnet, get_gemini_flash
+from src.llm.providers import get_gemini_flash, get_gemini_pro
 
 
 class IntentComplexity(StrEnum):
@@ -30,14 +29,12 @@ INTENT_COMPLEXITY_MAP: dict[str, IntentComplexity] = {
 }
 
 
-def get_model_for_intent(
-    intent: str,
-) -> ChatGoogleGenerativeAI | ChatAnthropic:
-    """Return the most appropriate LLM for the given intent.
+def get_model_for_intent(intent: str) -> ChatGoogleGenerativeAI:
+    """Return the most appropriate Gemini model for the given intent.
 
     Routing logic:
-    - ``simple`` / ``medium`` intents → Gemini 2.5 Flash (free tier, fast)
-    - ``complex`` intents → Claude Sonnet 4.6 (deeper reasoning)
+    - ``simple`` / ``medium`` intents → Gemini 2.5 Flash (free tier, fast, ~80 % of requests)
+    - ``complex`` intents → Gemini 2.5 Pro (free tier, stronger reasoning)
 
     Unknown intents default to Gemini Flash.
 
@@ -50,6 +47,6 @@ def get_model_for_intent(
     complexity = INTENT_COMPLEXITY_MAP.get(intent, IntentComplexity.SIMPLE)
 
     if complexity == IntentComplexity.COMPLEX:
-        return get_claude_sonnet()
+        return get_gemini_pro()
 
     return get_gemini_flash()

@@ -29,11 +29,10 @@ class Settings(BaseSettings):
         default=None, description="HMAC secret for ClickUp webhook validation"
     )
 
-    # ── Anthropic ─────────────────────────────────────────────────────────────
-    anthropic_api_key: str = Field(..., description="Anthropic API key for Claude Sonnet")
-
     # ── Google AI (Gemini) ────────────────────────────────────────────────────
-    google_ai_api_key: str = Field(..., description="Google AI Studio API key for Gemini Flash")
+    google_ai_api_key: str = Field(
+        ..., description="Google AI Studio API key (used for Gemini Flash and Gemini Pro)"
+    )
 
     # ── App ───────────────────────────────────────────────────────────────────
     app_host: str = Field(default="0.0.0.0", description="Uvicorn host binding")
@@ -52,7 +51,7 @@ class Settings(BaseSettings):
         description="Model alias used for simple/medium intents",
     )
     complex_model: str = Field(
-        default="claude-sonnet",
+        default="gemini-pro",
         description="Model alias used for complex intents",
     )
 
