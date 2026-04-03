@@ -3,15 +3,21 @@
 import logging
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, status
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from src.config import settings
 from src.gateway.validators import validate_telegram_secret
+from src.graph.builder import build_graph
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
+
+# Graph is compiled once and reused across requests.
+_graph = build_graph()
 
 
 # ── Pydantic models for Telegram Update payload ───────────────────────────────
@@ -67,6 +73,32 @@ class TelegramUpdate(BaseModel):
     # We only handle message for now; other update types are ignored.
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+async def _send_telegram_message(chat_id: int, text: str) -> None:
+    """Send a text message back to a Telegram chat via the Bot API.
+
+    Args:
+        chat_id: Target Telegram chat ID.
+        text: Message text (supports Markdown v2 parse mode).
+    """
+    url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown",
+    }
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(url, json=payload)
+        if resp.status_code != 200:
+            logger.error(
+                "Telegram sendMessage failed: status=%d body=%s",
+                resp.status_code,
+                resp.text[:200],
+            )
+
+
 # ── Route ─────────────────────────────────────────────────────────────────────
 
 
@@ -77,11 +109,14 @@ async def telegram_webhook(
 ) -> dict[str, str]:
     """Receive and process a Telegram update.
 
-    Validates the secret token header, parses the update, logs the incoming
-    message and returns 200 so Telegram stops retrying.
+    Flow:
+    1. Validate the secret token header.
+    2. Parse the Telegram Update payload.
+    3. Invoke the LangGraph agent.
+    4. Send the agent response back via the Telegram Bot API.
 
     Args:
-        request: Raw FastAPI request (used to read the body).
+        request: Raw FastAPI request.
         x_telegram_bot_api_secret_token: Value from Telegram's secret header.
 
     Returns:
@@ -115,7 +150,28 @@ async def telegram_webhook(
         text[:100],
     )
 
-    # ── Invoke graph (wired in Etapa 7) ───────────────────────────────────────
-    # Placeholder — graph invocation added in Etapa 7.
+    if not text.strip():
+        return {"status": "ignored"}
+
+    # ── Invoke LangGraph agent ────────────────────────────────────────────────
+    initial_state = {
+        "messages": [HumanMessage(content=text)],
+        "intent": "",
+        "context": {},
+        "response": "",
+        "user_id": user_id,
+    }
+
+    config = {"configurable": {"thread_id": user_id}}
+
+    try:
+        result = await _graph.ainvoke(initial_state, config=config)
+        response_text = result.get("response", "Desculpe, não consegui processar sua mensagem.")
+    except Exception:
+        logger.exception("Graph invocation failed for user=%s", user_id)
+        response_text = "Ocorreu um erro interno. Tente novamente em instantes."
+
+    # ── Reply to user ─────────────────────────────────────────────────────────
+    await _send_telegram_message(chat_id, response_text)
 
     return {"status": "ok"}
