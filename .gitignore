@@ -1,0 +1,65 @@
+# Secrets and credentials
+.env
+credentials/
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.cache/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Docker
+*.override.yml
+
+# Jupyter
+.ipynb_checkpoints/
+
+# LangSmith / LangChain
+.langchain/
