@@ -1,11 +1,13 @@
 """FastAPI application entry point."""
 
 import logging
+import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 
+from src.config import settings
 from src.gateway.routes import telegram as telegram_router
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,22 @@ def _configure_logging() -> None:
         format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+
+def _configure_langsmith() -> None:
+    """Enable LangSmith tracing if the API key is present.
+
+    Sets the standard LangSmith environment variables so that all LangChain
+    and LangGraph calls are automatically traced without any code changes.
+    """
+    if not settings.langsmith_api_key or not settings.langsmith_tracing:
+        logger.info("LangSmith tracing disabled (LANGSMITH_TRACING=false or no key)")
+        return
+
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
+    os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
+    logger.info("LangSmith tracing enabled — project: %s", settings.langsmith_project)
 
 
 @asynccontextmanager
@@ -34,9 +52,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _configure_logging()
     logger.info("SecretarIA starting up…")
 
-    # ── LangSmith tracing (configured in Etapa 8) ────────────────────────────
-    # Tracing setup is deferred to Etapa 8; the placeholder is kept here
-    # so the lifespan structure is already in place.
+    _configure_langsmith()
 
     yield
 
