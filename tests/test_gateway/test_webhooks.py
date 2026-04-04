@@ -68,7 +68,9 @@ def test_health_returns_ok(client):
     """GET /health should return 200 with status:ok."""
     resp = client.get("/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert "version" in body
 
 
 # ── Telegram webhook ──────────────────────────────────────────────────────────

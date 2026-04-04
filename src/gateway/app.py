@@ -116,5 +116,51 @@ app.include_router(calendar_router.router)
 
 @app.get("/health", tags=["infra"])
 async def health() -> dict[str, str]:
-    """Liveness probe."""
-    return {"status": "ok"}
+    """Liveness probe — checks subsystem status."""
+    from sqlalchemy import text
+
+    from src.memory.database import _get_engine
+    from src.scheduler.setup import get_scheduler
+
+    # DB check
+    db_status = "ok"
+    try:
+        async with _get_engine().connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "error"
+
+    # Scheduler check
+    try:
+        scheduler = get_scheduler()
+        scheduler_status = "ok" if scheduler.running else "stopped"
+    except RuntimeError:
+        scheduler_status = "stopped"
+
+    return {
+        "status": "ok",
+        "db": db_status,
+        "scheduler": scheduler_status,
+        "version": "0.3.0",
+    }
+
+
+@app.get("/ready", tags=["infra"])
+async def ready() -> dict[str, str]:
+    """Readiness probe — returns 503 until scheduler is running."""
+    from src.scheduler.setup import get_scheduler
+
+    try:
+        scheduler = get_scheduler()
+        running = scheduler.running
+    except RuntimeError:
+        running = False
+
+    if not running:
+        from fastapi.responses import JSONResponse as _JSONResponse
+
+        return _JSONResponse(  # type: ignore[return-value]
+            status_code=503,
+            content={"status": "not ready", "reason": "scheduler not running"},
+        )
+    return {"status": "ready"}
