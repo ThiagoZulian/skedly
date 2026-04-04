@@ -60,20 +60,22 @@ async def test_send_telegram_success():
 
 
 @pytest.mark.asyncio
-async def test_send_telegram_non_200_logs_error(caplog):
-    """_send_telegram logs an error when Telegram returns non-200."""
-    import logging
+async def test_send_telegram_non_200_raises(caplog):
+    """_send_telegram raises HTTPStatusError on non-2xx responses (no silent swallow)."""
+    import httpx
 
     resp = _make_httpx_response(400)
+    # Make raise_for_status actually raise so the new behaviour is exercised.
+    resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "400", request=MagicMock(), response=resp
+    )
     ctx, _ = _async_client_ctx(resp)
 
     with patch("src.scheduler.jobs.httpx.AsyncClient", return_value=ctx):
         from src.scheduler.jobs import _send_telegram
 
-        with caplog.at_level(logging.ERROR, logger="src.scheduler.jobs"):
+        with pytest.raises(httpx.HTTPStatusError):
             await _send_telegram("12345", "Hello")
-
-    assert any("status" in rec.message for rec in caplog.records)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

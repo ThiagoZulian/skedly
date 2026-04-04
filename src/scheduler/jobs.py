@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from src.config import settings
 
@@ -19,9 +20,27 @@ _CLICKUP_BASE = "https://api.clickup.com/api/v2"
 _PROMPTS_DIR = Path(__file__).parent.parent.parent / "prompts"
 
 
+# ── Retry policy ─────────────────────────────────────────────────────────────
+
+
+def _is_retryable_http(exc: BaseException) -> bool:
+    """Retry on 5xx responses and timeouts; pass 4xx through immediately."""
+    if isinstance(exc, httpx.TimeoutException):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return False
+
+
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 
+@retry(
+    retry=retry_if_exception(_is_retryable_http),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
 async def _send_telegram(chat_id: str, text: str) -> None:
     """Send a text message to a Telegram chat via the Bot API.
 
@@ -31,17 +50,9 @@ async def _send_telegram(chat_id: str, text: str) -> None:
     """
     url = f"{_TELEGRAM_API}/bot{settings.telegram_bot_token}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code != 200:
-                logger.error(
-                    "_send_telegram: status=%d body=%s",
-                    resp.status_code,
-                    resp.text[:200],
-                )
-    except Exception:
-        logger.exception("_send_telegram: failed for chat_id=%s", chat_id)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(url, json=payload)
+        resp.raise_for_status()
 
 
 # ── Dynamic reminder job ──────────────────────────────────────────────────────

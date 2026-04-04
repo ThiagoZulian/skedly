@@ -11,6 +11,12 @@ from typing import Any
 
 import httpx
 from langchain_core.tools import tool
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from src.config import settings
 
@@ -23,6 +29,26 @@ _TIMEOUT = 15.0
 _PRIORITY_LABELS = {1: "urgente", 2: "alta", 3: "normal", 4: "baixa"}
 
 
+# ── Retry policy ─────────────────────────────────────────────────────────────
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Return True for transient errors only (5xx and timeouts, not 4xx)."""
+    if isinstance(exc, httpx.TimeoutException):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return False
+
+
+_retry_policy = retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
+
+
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
 
 
@@ -31,6 +57,7 @@ def _headers() -> dict[str, str]:
     return {"Authorization": settings.clickup_api_token, "Content-Type": "application/json"}
 
 
+@_retry_policy
 async def _get(path: str, params: dict | None = None) -> dict[str, Any]:
     """Make an authenticated GET request to the ClickUp API."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
@@ -39,6 +66,7 @@ async def _get(path: str, params: dict | None = None) -> dict[str, Any]:
         return resp.json()
 
 
+@_retry_policy
 async def _post(path: str, body: dict) -> dict[str, Any]:
     """Make an authenticated POST request to the ClickUp API."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
@@ -47,6 +75,7 @@ async def _post(path: str, body: dict) -> dict[str, Any]:
         return resp.json()
 
 
+@_retry_policy
 async def _put(path: str, body: dict) -> dict[str, Any]:
     """Make an authenticated PUT request to the ClickUp API."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
