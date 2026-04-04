@@ -28,10 +28,18 @@ class Settings(BaseSettings):
     clickup_webhook_secret: str | None = Field(
         default=None, description="HMAC secret for ClickUp webhook validation"
     )
+    clickup_default_list_id: str | None = Field(
+        default=None, description="Default ClickUp list ID for task creation/listing"
+    )
 
     # ── Google AI (Gemini) ────────────────────────────────────────────────────
     google_ai_api_key: str = Field(
         ..., description="Google AI Studio API key (used for Gemini Flash and Gemini Pro)"
+    )
+
+    # ── Google Calendar ───────────────────────────────────────────────────────
+    google_calendar_id: str = Field(
+        default="primary", description="Google Calendar ID to use (default: primary)"
     )
 
     # ── App ───────────────────────────────────────────────────────────────────
