@@ -1,44 +1,52 @@
-"""format_response node — shapes the final message sent back to the user."""
+"""format_response node — generates the final natural-language reply."""
+
+from __future__ import annotations
 
 import logging
+from pathlib import Path
+
+from langchain_core.messages import AIMessage, SystemMessage
 
 from src.graph.state import AgentState
+from src.llm.providers import get_gemini_flash
 
 logger = logging.getLogger(__name__)
 
-# Human-readable labels for each intent, used in placeholder responses.
-_INTENT_LABELS: dict[str, str] = {
-    "schedule_event": "agendar um evento",
-    "query_calendar": "consultar o calendário",
-    "create_task": "criar uma tarefa",
-    "query_tasks": "listar tarefas",
-    "set_reminder": "definir um lembrete",
-    "reorganize": "reorganizar a agenda",
-    "daily_briefing": "ver o briefing diário",
-    "general_chat": "conversar",
-}
+_SYSTEM_PROMPT_PATH = Path(__file__).parents[3] / "prompts" / "system.md"
 
 
 async def format_response(state: AgentState) -> dict:
-    """Format the final response to be sent to the user via Telegram.
+    """Produce the final response string for the user.
 
-    In Phase 1 this node produces a confirmation message that echoes the
-    classified intent. Later phases will replace this with a full LLM-generated
-    response incorporating tool results.
+    Two cases:
+    - **Tool flow**: ``plan_action`` already produced a final AIMessage (no tool_calls).
+      Extract its content directly — no extra LLM call needed.
+    - **general_chat / direct**: No AIMessage from plan_action. Call Gemini Flash
+      to generate a conversational response from the message history.
 
     Args:
-        state: Current agent state (must have ``intent`` populated).
+        state: Agent state with ``messages`` and optional ``intent``.
 
     Returns:
         Partial state dict with ``response`` set.
     """
-    intent = state.get("intent", "general_chat")
-    label = _INTENT_LABELS.get(intent, intent)
+    messages = state.get("messages", [])
 
-    response = (
-        f"Entendido! Identifico que você quer *{label}*.\n\n"
-        f"_(Intent: `{intent}` — funcionalidade completa em breve!)_"
-    )
+    # Look for the last AI message without pending tool_calls
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
+            response = str(msg.content).strip()
+            if response:
+                logger.info("format_response: using existing AI message")
+                return {"response": response}
 
-    logger.info("Formatted response for intent=%s", intent)
-    return {"response": response}
+    # No usable AI message — call LLM directly (general_chat path)
+    logger.info("format_response: calling LLM for general_chat response")
+    try:
+        llm = get_gemini_flash()
+        system = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+        ai_response = await llm.ainvoke([SystemMessage(content=system), *messages])
+        return {"response": str(ai_response.content).strip()}
+    except Exception:
+        logger.exception("format_response LLM call failed")
+        return {"response": "Desculpe, não consegui processar sua mensagem. Tente novamente."}

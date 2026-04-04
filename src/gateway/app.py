@@ -1,5 +1,7 @@
 """FastAPI application entry point."""
 
+from __future__ import annotations
+
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -8,13 +10,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.config import settings
+from src.gateway.routes import calendar as calendar_router
+from src.gateway.routes import clickup as clickup_router
 from src.gateway.routes import telegram as telegram_router
 
 logger = logging.getLogger(__name__)
 
 
 def _configure_logging() -> None:
-    """Configure basic logging for the application."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -23,15 +26,9 @@ def _configure_logging() -> None:
 
 
 def _configure_langsmith() -> None:
-    """Enable LangSmith tracing if the API key is present.
-
-    Sets the standard LangSmith environment variables so that all LangChain
-    and LangGraph calls are automatically traced without any code changes.
-    """
+    """Enable LangSmith tracing if configured."""
     if not settings.langsmith_api_key or not settings.langsmith_tracing:
-        logger.info("LangSmith tracing disabled (LANGSMITH_TRACING=false or no key)")
         return
-
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
     os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
     os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
@@ -40,41 +37,48 @@ def _configure_langsmith() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan: startup and shutdown hooks.
-
-    Startup:
-    - Configures logging.
-    - Optionally enables LangSmith tracing if the API key is present.
-
-    Shutdown:
-    - Logs a clean shutdown message.
-    """
+    """Startup: DB, scheduler, checkpointer, graph. Shutdown: cleanup."""
     _configure_logging()
     logger.info("SecretarIA starting up…")
-
     _configure_langsmith()
+
+    # Database
+    from src.memory.database import init_db
+    await init_db()
+
+    # Scheduler
+    from src.scheduler.setup import init_scheduler, shutdown_scheduler
+    init_scheduler()
+
+    # LangGraph checkpointer — rebuild graph with persistence
+    from src.graph.builder import build_graph
+    from src.memory.checkpointer import close_checkpointer, get_checkpointer
+    checkpointer = await get_checkpointer()
+    import src.gateway.routes.telegram as tg_route
+    tg_route._graph = build_graph(checkpointer=checkpointer)
+    logger.info("Graph rebuilt with SQLite checkpointer")
 
     yield
 
+    # Shutdown
+    shutdown_scheduler()
+    await close_checkpointer()
     logger.info("SecretarIA shutting down…")
 
 
 app = FastAPI(
     title="SecretarIA",
     description="Assistente pessoal de IA com LangGraph, Telegram, Google Calendar e ClickUp.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
-# ── Routers ───────────────────────────────────────────────────────────────────
-
 app.include_router(telegram_router.router)
-
-
-# ── Health check ──────────────────────────────────────────────────────────────
+app.include_router(clickup_router.router)
+app.include_router(calendar_router.router)
 
 
 @app.get("/health", tags=["infra"])
 async def health() -> dict[str, str]:
-    """Simple liveness probe used by Docker healthcheck and load balancers."""
+    """Liveness probe."""
     return {"status": "ok"}
