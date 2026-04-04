@@ -171,6 +171,14 @@ async def telegram_webhook(
         logger.exception("Graph invocation failed for user=%s", user_id)
         response_text = "Ocorreu um erro interno. Tente novamente em instantes."
 
+    # ── Persist conversation to DB (fire-and-forget) ──────────────────────────
+    try:
+        from src.memory.conversation import save_conversation
+
+        await save_conversation(user_id, text, response_text)
+    except Exception:
+        logger.warning("Failed to persist conversation for user=%s", user_id)
+
     # ── Reply to user ─────────────────────────────────────────────────────────
     await _send_telegram_message(chat_id, response_text)
 

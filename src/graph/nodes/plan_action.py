@@ -47,7 +47,12 @@ async def plan_action(state: AgentState) -> dict:
     context = state.get("context", {})
     messages = list(state["messages"])
 
-    llm = get_model_for_intent(intent)
+    # Pass routing hints so the router can escalate when needed
+    last_text = messages[-1].content if messages else ""
+    message_length = len(str(last_text))
+    has_history = bool(context.get("recent_history"))
+
+    llm = get_model_for_intent(intent, message_length=message_length, has_history=has_history)
     llm_with_tools = llm.bind_tools(ALL_TOOLS)
 
     system_msg = _build_system_message(intent, context)
