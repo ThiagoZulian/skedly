@@ -72,6 +72,11 @@ class Settings(BaseSettings):
         default=False, description="Enable LangSmith tracing"
     )
 
+    # ── Rate limiting ─────────────────────────────────────────────────────────
+    rate_limit_per_minute: int = Field(
+        default=30, description="Max requests per minute per chat_id on the Telegram webhook"
+    )
+
     # ── Proactive features ────────────────────────────────────────────────────
     telegram_chat_id: str | None = Field(
         default=None, description="Default Telegram chat ID for proactive outbound messages"

@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from src.config import settings
+from src.gateway.limiter import limiter
 from src.gateway.validators import validate_telegram_secret
 from src.graph.builder import build_graph
 
@@ -103,6 +104,7 @@ async def _send_telegram_message(chat_id: int, text: str) -> None:
 
 
 @router.post("/telegram", status_code=status.HTTP_200_OK)
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 async def telegram_webhook(
     request: Request,
     x_telegram_bot_api_secret_token: str | None = Header(default=None),

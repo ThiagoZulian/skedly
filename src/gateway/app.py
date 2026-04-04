@@ -7,9 +7,13 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from src.config import settings
+from src.gateway.limiter import limiter
 from src.gateway.routes import calendar as calendar_router
 from src.gateway.routes import clickup as clickup_router
 from src.gateway.routes import telegram as telegram_router
@@ -72,6 +76,20 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Return HTTP 429 with a friendly Portuguese message."""
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Muitas requisições. Aguarde um momento antes de tentar novamente."},
+    )
+
 
 app.include_router(telegram_router.router)
 app.include_router(clickup_router.router)
