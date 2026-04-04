@@ -90,34 +90,58 @@ async def test_classify_intent_accepts_all_valid_intents(intent: str):
 
 
 @pytest.mark.asyncio
-async def test_format_response_includes_intent_label():
-    """format_response should produce a non-empty response referencing the intent."""
-    result = await format_response(_make_state("", intent="schedule_event"))
-    assert "schedule_event" in result["response"]
-    assert len(result["response"]) > 10
+async def test_format_response_uses_existing_ai_message():
+    """format_response should use an existing AIMessage without calling the LLM."""
+    state = _make_state("", intent="schedule_event")
+    state["messages"].append(AIMessage(content="Evento agendado com sucesso!"))
+
+    result = await format_response(state)
+    assert result["response"] == "Evento agendado com sucesso!"
 
 
 @pytest.mark.asyncio
-async def test_format_response_handles_unknown_intent():
-    """format_response should not crash for an unrecognised intent."""
-    result = await format_response(_make_state("", intent="totally_unknown"))
-    assert "response" in result
-    assert result["response"]
+async def test_format_response_calls_llm_when_no_ai_message():
+    """format_response should call Gemini Flash if no usable AIMessage exists."""
+    mock_llm = MagicMock()
+    mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content="Olá, como posso ajudar?"))
+
+    state = _make_state("Oi", intent="general_chat")
+
+    with patch("src.graph.nodes.format_response.get_gemini_flash", return_value=mock_llm):
+        result = await format_response(state)
+
+    assert result["response"] == "Olá, como posso ajudar?"
+    mock_llm.ainvoke.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_format_response_all_known_intents():
-    """format_response should return a non-empty string for every known intent."""
-    known_intents = [
-        "schedule_event",
-        "query_calendar",
-        "create_task",
-        "query_tasks",
-        "set_reminder",
-        "reorganize",
-        "daily_briefing",
-        "general_chat",
-    ]
-    for intent in known_intents:
-        result = await format_response(_make_state("", intent=intent))
-        assert result["response"], f"Empty response for intent={intent}"
+async def test_format_response_handles_llm_error():
+    """format_response should return a fallback string if LLM raises."""
+    mock_llm = MagicMock()
+    mock_llm.ainvoke = AsyncMock(side_effect=RuntimeError("LLM down"))
+
+    state = _make_state("Oi", intent="general_chat")
+
+    with patch("src.graph.nodes.format_response.get_gemini_flash", return_value=mock_llm):
+        result = await format_response(state)
+
+    assert result["response"]  # fallback message present
+    assert "Desculpe" in result["response"]
+
+
+@pytest.mark.asyncio
+async def test_format_response_ignores_ai_message_with_tool_calls():
+    """AIMessage with pending tool_calls should be skipped; LLM should be called."""
+    tool_call = {"name": "list_tasks", "args": {}, "id": "c1", "type": "tool_call"}
+    ai_with_tools = AIMessage(content="", tool_calls=[tool_call])
+
+    mock_llm = MagicMock()
+    mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content="Resposta final"))
+
+    state = _make_state("ver tarefas", intent="query_tasks")
+    state["messages"].append(ai_with_tools)
+
+    with patch("src.graph.nodes.format_response.get_gemini_flash", return_value=mock_llm):
+        result = await format_response(state)
+
+    assert result["response"] == "Resposta final"

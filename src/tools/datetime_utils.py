@@ -109,7 +109,7 @@ def parse_relative_date(text: str) -> str:
                 return (today + timedelta(days=days_ahead)).isoformat()
 
     # ── Absolute date formats ─────────────────────────────────────────────────
-    for fmt, order in [
+    for fmt, _order in [
         ("%d/%m/%Y", "br"),
         ("%d/%m/%y", "br"),
         ("%Y-%m-%d", "iso"),

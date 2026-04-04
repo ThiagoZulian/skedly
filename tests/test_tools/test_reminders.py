@@ -18,8 +18,8 @@ async def test_create_reminder():
     mock_scheduler.add_job = MagicMock()
 
     with (
-        patch("src.tools.reminders.get_async_session", return_value=mock_session),
-        patch("src.tools.reminders.get_scheduler", return_value=mock_scheduler),
+        patch("src.memory.database.get_async_session", return_value=mock_session),
+        patch("src.scheduler.setup.get_scheduler", return_value=mock_scheduler),
     ):
         from src.tools.reminders import create_reminder
         result = await create_reminder.ainvoke({
@@ -39,7 +39,7 @@ async def test_list_reminders_empty():
     mock_result.scalars.return_value.all.return_value = []
     mock_session.execute = AsyncMock(return_value=mock_result)
 
-    with patch("src.tools.reminders.get_async_session", return_value=mock_session):
+    with patch("src.memory.database.get_async_session", return_value=mock_session):
         from src.tools.reminders import list_reminders
         result = await list_reminders.ainvoke({"user_id": "123"})
     assert "Nenhum lembrete" in result
@@ -52,7 +52,7 @@ async def test_delete_reminder_not_found():
     mock_session.__aexit__ = AsyncMock(return_value=False)
     mock_session.get = AsyncMock(return_value=None)
 
-    with patch("src.tools.reminders.get_async_session", return_value=mock_session):
+    with patch("src.memory.database.get_async_session", return_value=mock_session):
         from src.tools.reminders import delete_reminder
         result = await delete_reminder.ainvoke({"reminder_id": "999"})
     assert "não encontrado" in result

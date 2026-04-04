@@ -50,12 +50,12 @@ async def clickup_webhook(
     """
     raw_body = await request.body()
 
-    if settings.clickup_webhook_secret:
-        if not x_signature or not validate_clickup_signature(
-            raw_body, x_signature, settings.clickup_webhook_secret
-        ):
-            logger.warning("Rejected ClickUp webhook: invalid signature")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
+    if settings.clickup_webhook_secret and (
+        not x_signature
+        or not validate_clickup_signature(raw_body, x_signature, settings.clickup_webhook_secret)
+    ):
+        logger.warning("Rejected ClickUp webhook: invalid signature")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid signature")
 
     body = await request.json()
     payload = ClickUpWebhookPayload.model_validate(body)
