@@ -71,3 +71,14 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = Field(
         default=False, description="Enable LangSmith tracing"
     )
+
+    # ── Proactive features ────────────────────────────────────────────────────
+    telegram_chat_id: str | None = Field(
+        default=None, description="Default Telegram chat ID for proactive outbound messages"
+    )
+    briefing_hour: int = Field(
+        default=8, description="Hour (0-23, America/Sao_Paulo) to send daily briefing"
+    )
+    deadline_alert_days: int = Field(
+        default=2, description="How many days ahead to look for upcoming ClickUp deadlines"
+    )
