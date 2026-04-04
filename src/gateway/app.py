@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="SecretarIA",
     description="Assistente pessoal de IA com LangGraph, Telegram, Google Calendar e ClickUp.",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
