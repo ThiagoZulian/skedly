@@ -153,6 +153,14 @@ async def telegram_webhook(
     if not text.strip():
         return {"status": "ignored"}
 
+    # ── Persist chat_id for proactive outbound messages ───────────────────────
+    try:
+        from src.memory.preferences import set_preference
+
+        await set_preference(user_id, "chat_id", str(chat_id))
+    except Exception:
+        logger.warning("Failed to persist chat_id for user=%s", user_id)
+
     # ── Invoke LangGraph agent ────────────────────────────────────────────────
     initial_state = {
         "messages": [HumanMessage(content=text)],
