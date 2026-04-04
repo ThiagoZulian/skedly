@@ -177,6 +177,14 @@ async def telegram_webhook(
     try:
         result = await _graph.ainvoke(initial_state, config=config)
         response_text = result.get("response", "Desculpe, não consegui processar sua mensagem.")
+        logger.info(
+            "Graph invocation succeeded",
+            extra={
+                "user_id": user_id,
+                "chat_id": chat_id,
+                "intent": result.get("intent", ""),
+            },
+        )
     except Exception:
         logger.exception("Graph invocation failed for user=%s", user_id)
         response_text = "Ocorreu um erro interno. Tente novamente em instantes."

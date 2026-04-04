@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from pythonjsonlogger import json as jsonlogger
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -22,11 +23,28 @@ logger = logging.getLogger(__name__)
 
 
 def _configure_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    """Configure root logger — JSON format when LOG_FORMAT=json, text otherwise."""
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    if root.handlers:
+        # Already configured (e.g. during tests) — don't duplicate handlers.
+        return
+
+    if settings.log_format == "json":
+        handler = logging.StreamHandler()
+        formatter = jsonlogger.JsonFormatter(
+            fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
+            rename_fields={"asctime": "timestamp", "levelname": "level", "name": "logger"},
+        )
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+    else:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
 
 
 def _configure_langsmith() -> None:

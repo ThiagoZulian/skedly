@@ -72,6 +72,12 @@ class Settings(BaseSettings):
         default=False, description="Enable LangSmith tracing"
     )
 
+    # ── Logging ───────────────────────────────────────────────────────────────
+    log_format: str = Field(
+        default="text",
+        description="Log output format: 'json' for structured JSON, 'text' for human-readable",
+    )
+
     # ── Rate limiting ─────────────────────────────────────────────────────────
     rate_limit_per_minute: int = Field(
         default=30, description="Max requests per minute per chat_id on the Telegram webhook"
