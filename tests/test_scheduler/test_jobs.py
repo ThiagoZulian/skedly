@@ -131,7 +131,7 @@ async def test_send_reminder_job_reminder_not_in_db():
         # Should not raise
         await send_reminder_job(reminder_id=999, user_id="42", message="Test")
 
-    mock_session.commit.assert_not_awaited()
+    mock_session.commit.assert_not_called()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
