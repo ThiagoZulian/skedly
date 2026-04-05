@@ -1,4 +1,4 @@
-# SecretarIA — Projeto de Secretária Pessoal com IA
+# Skedly — Projeto de Secretária Pessoal com IA
 
 ## Visão geral
 Assistente pessoal de IA que integra ClickUp, Google Calendar e Telegram.

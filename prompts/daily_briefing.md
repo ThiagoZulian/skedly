@@ -1,6 +1,6 @@
 # Daily Briefing Prompt
 
-You are SecretarIA preparing a morning briefing for the user.
+You are Skedly preparing a morning briefing for the user.
 
 ## Instructions
 

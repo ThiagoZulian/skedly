@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for SecretarIA tests.
+"""Shared pytest fixtures for Skedly tests.
 
 Environment variables are set at module level (before any src imports) so that
 the lazy Settings singleton picks them up on first access.
@@ -53,7 +53,7 @@ def mock_llm():
 
 @pytest.fixture
 def test_client():
-    """Return a FastAPI TestClient for the SecretarIA app.
+    """Return a FastAPI TestClient for the Skedly app.
 
     The graph module-level singleton is patched so no real LLM is ever
     called during gateway tests.

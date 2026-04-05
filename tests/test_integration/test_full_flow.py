@@ -1,4 +1,4 @@
-"""End-to-end integration tests for the SecretarIA agent.
+"""End-to-end integration tests for the Skedly agent.
 
 The LangGraph is invoked for real; only external I/O is mocked:
   - LLM calls (Gemini Flash / Pro)

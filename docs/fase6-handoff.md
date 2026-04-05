@@ -1,19 +1,20 @@
 # Handoff — Fase 6 (Ollama Local + Débito Técnico)
 
 ## Estado atual
+
 - Fases 1–5 completas. 130 testes passando, ruff limpo.
 - Último commit da Fase 5: `feat: Phase 5 complete — version bump 0.3.0`
 - Versão: `0.3.0`
 
 ## O que foi entregue nas fases anteriores
 
-| Fase | O que foi feito |
-|------|-----------------|
-| 1 | FastAPI + LangGraph + Telegram webhook + LangSmith |
-| 2 | Google Calendar tools, ClickUp tools, webhooks, roteador de intent |
-| 3 | Context builder, memória persistente (SQLite), model router, prompts refinados |
-| 4 | Briefing diário (cron 8h), alerta de deadlines (cron 8h05), lembretes dinâmicos, chat_id persistido |
-| 5 | Rate limiting (slowapi), logging JSON estruturado, /health e /ready, retry com tenacity, testes de integração E2E |
+| Fase | O que foi feito                                                                                                   |
+| ---- | ----------------------------------------------------------------------------------------------------------------- |
+| 1    | FastAPI + LangGraph + Telegram webhook + LangSmith                                                                |
+| 2    | Google Calendar tools, ClickUp tools, webhooks, roteador de intent                                                |
+| 3    | Context builder, memória persistente (SQLite), model router, prompts refinados                                    |
+| 4    | Briefing diário (cron 8h), alerta de deadlines (cron 8h05), lembretes dinâmicos, chat_id persistido               |
+| 5    | Rate limiting (slowapi), logging JSON estruturado, /health e /ready, retry com tenacity, testes de integração E2E |
 
 ## Fase 6 — O que fazer
 
@@ -22,6 +23,7 @@
 O usuário tem uma AMD RX 9070 XT. O Ollama tem suporte experimental a ROCm.
 
 **Investigação antes de implementar:**
+
 - Verificar versão atual do ROCm compatível com RX 9070 XT (RDNA 4 — pode ainda não ter suporte estável)
 - Testar `ollama run llama3.2:3b` localmente antes de integrar
 - Avaliar latência vs. qualidade em relação ao Gemini Flash
@@ -29,8 +31,8 @@ O usuário tem uma AMD RX 9070 XT. O Ollama tem suporte experimental a ROCm.
 **Implementação (quando viável):**
 
 1. Instalar `langchain-ollama` e adicionar ao `requirements.txt` / `pyproject.toml`
-
 2. Adicionar `OllamaProvider` em `src/llm/providers.py`:
+
    ```python
    from langchain_ollama import ChatOllama
 
@@ -42,6 +44,7 @@ O usuário tem uma AMD RX 9070 XT. O Ollama tem suporte experimental a ROCm.
    ```
 
 3. Adicionar ao `src/config/settings.py`:
+
    ```python
    ollama_base_url: str = Field(default="http://localhost:11434", ...)
    ollama_model: str = Field(default="llama3.2:3b", ...)
@@ -49,9 +52,7 @@ O usuário tem uma AMD RX 9070 XT. O Ollama tem suporte experimental a ROCm.
    ```
 
 4. Atualizar `src/llm/router.py` para rotear para Ollama quando `settings.use_ollama=True` e o servidor estiver disponível (health check no startup).
-
 5. Fallback automático: se Ollama não responder em 2s → Gemini Flash.
-
 6. Testes: mock do ChatOllama, verificar fallback quando offline.
 
 ### Etapa 2 — Débito técnico identificado na Fase 5
@@ -79,6 +80,7 @@ O usuário tem uma AMD RX 9070 XT. O Ollama tem suporte experimental a ROCm.
 **Problema**: ao mudar para `LOG_FORMAT=json`, apenas o root logger é configurado. Loggers do uvicorn e do APScheduler têm seus próprios handlers e não são afetados.
 
 **Fix sugerido**: no `_configure_logging`, propagar a configuração JSON para os loggers de bibliotecas conhecidas:
+
 ```python
 for name in ("uvicorn", "uvicorn.access", "apscheduler"):
     lib_logger = logging.getLogger(name)
@@ -98,15 +100,15 @@ Quando o código estiver maduro o suficiente:
 
 ## Arquivos-chave para Fase 6
 
-| Arquivo | O que mudar |
-|---------|-------------|
-| `src/llm/providers.py` | Adicionar `get_ollama()` |
-| `src/llm/router.py` | Rotear para Ollama quando disponível |
-| `src/config/settings.py` | Adicionar `ollama_base_url`, `ollama_model`, `use_ollama` |
-| `src/scheduler/jobs.py` | Adicionar retry em `check_deadlines` HTTP call |
-| `src/gateway/routes/telegram.py` | Adicionar retry em `_send_telegram_message` |
-| `Dockerfile` / `docker-compose.yml` | Hardening para produção |
-| `requirements.txt` / `pyproject.toml` | Adicionar `langchain-ollama` |
+| Arquivo                               | O que mudar                                               |
+| ------------------------------------- | --------------------------------------------------------- |
+| `src/llm/providers.py`                | Adicionar `get_ollama()`                                  |
+| `src/llm/router.py`                   | Rotear para Ollama quando disponível                      |
+| `src/config/settings.py`              | Adicionar `ollama_base_url`, `ollama_model`, `use_ollama` |
+| `src/scheduler/jobs.py`               | Adicionar retry em `check_deadlines` HTTP call            |
+| `src/gateway/routes/telegram.py`      | Adicionar retry em `_send_telegram_message`               |
+| `Dockerfile` / `docker-compose.yml`   | Hardening para produção                                   |
+| `requirements.txt` / `pyproject.toml` | Adicionar `langchain-ollama`                              |
 
 ## Dependências a instalar (Fase 6)
 

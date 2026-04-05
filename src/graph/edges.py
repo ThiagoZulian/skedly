@@ -1,4 +1,4 @@
-"""Conditional edge functions for the SecretarIA LangGraph."""
+"""Conditional edge functions for the Skedly LangGraph."""
 
 from __future__ import annotations
 

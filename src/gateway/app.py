@@ -66,7 +66,7 @@ def _configure_langsmith() -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup: DB, scheduler, checkpointer, graph. Shutdown: cleanup."""
     _configure_logging()
-    logger.info("SecretarIA starting up…")
+    logger.info("Skedly starting up…")
     _configure_langsmith()
 
     # Database
@@ -90,11 +90,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown
     shutdown_scheduler()
     await close_checkpointer()
-    logger.info("SecretarIA shutting down…")
+    logger.info("Skedly shutting down…")
 
 
 app = FastAPI(
-    title="SecretarIA",
+    title="Skedly",
     description="Assistente pessoal de IA com LangGraph, Telegram, Google Calendar e ClickUp.",
     version="0.3.0",
     lifespan=lifespan,

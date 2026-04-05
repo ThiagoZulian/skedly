@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for SecretarIA persistence."""
+"""SQLAlchemy ORM models for Skedly persistence."""
 
 from __future__ import annotations
 

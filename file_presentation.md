@@ -111,7 +111,7 @@ System prompt que instrui o Gemini a retornar exatamente uma string de categoria
 português. É lido do disco a cada invocação do nó (simples e barato — é um arquivo pequeno).
 
 prompts/system.md
-Personalidade da SecretarIA: concisa, proativa, warm mas profissional, sempre em pt-BR. Define capacidades (Calendar, ClickUp, lembretes) e limites
+Personalidade da Skedly: concisa, proativa, warm mas profissional, sempre em pt-BR. Define capacidades (Calendar, ClickUp, lembretes) e limites
 (não navega na web, não manda emails). Será injetado como SystemMessage nas fases de plan_action.
 
 prompts/daily_briefing.md

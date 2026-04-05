@@ -51,7 +51,7 @@ Você precisa de um domínio apontando para o IP da sua VPS.
 **Opção B — Subdomínio gratuito:**
 - [DuckDNS](https://www.duckdns.org) — cria `seunome.duckdns.org` gratuitamente
   1. Acesse duckdns.org, faça login com Google
-  2. Crie um subdomínio (ex: `secretaria-thiago.duckdns.org`)
+  2. Crie um subdomínio (ex: `skedly-thiago.duckdns.org`)
   3. Anote o subdomínio — você vai usá-lo em todos os passos abaixo no lugar de `yourdomain.com`
 
 > Neste guia vamos usar `yourdomain.com` como placeholder. Substitua pelo seu domínio real.
@@ -71,7 +71,7 @@ Você precisa de um domínio apontando para o IP da sua VPS.
 **Gerar chave SSH (se não tiver):**
 ```bash
 # No seu computador:
-ssh-keygen -t ed25519 -C "secretaria-deploy"
+ssh-keygen -t ed25519 -C "skedly-deploy"
 # Aceite o caminho padrão (~/.ssh/id_ed25519)
 # Cole o conteúdo de ~/.ssh/id_ed25519.pub na MagaluCloud
 cat ~/.ssh/id_ed25519.pub
@@ -172,8 +172,8 @@ sudo systemctl start nginx
 ```bash
 # Na VPS:
 cd ~
-git clone https://github.com/SEU_USUARIO/SEU_REPO.git secretaria
-cd secretaria
+git clone https://github.com/SEU_USUARIO/SEU_REPO.git skedly
+cd skedly
 ```
 
 **Opção B — Via rsync (do seu computador):**
@@ -184,7 +184,7 @@ rsync -avz \
   --exclude='data/' \
   --exclude='__pycache__/' \
   --exclude='.git/' \
-  ./ ubuntu@IP_DA_VPS:~/secretaria/
+  ./ ubuntu@IP_DA_VPS:~/skedly/
 ```
 
 ---
@@ -193,7 +193,7 @@ rsync -avz \
 
 ```bash
 # Na VPS:
-cd ~/secretaria
+cd ~/skedly
 nano .env
 ```
 
@@ -214,8 +214,8 @@ TELEGRAM_CHAT_ID=SEU_CHAT_ID_DO_TELEGRAM
 
 ```bash
 # Do seu computador, envie os dois arquivos de credenciais:
-scp credentials/google_oauth.json ubuntu@IP_DA_VPS:~/secretaria/credentials/
-scp credentials/token.json         ubuntu@IP_DA_VPS:~/secretaria/credentials/
+scp credentials/google_oauth.json ubuntu@IP_DA_VPS:~/skedly/credentials/
+scp credentials/token.json         ubuntu@IP_DA_VPS:~/skedly/credentials/
 ```
 
 ---
@@ -225,15 +225,15 @@ scp credentials/token.json         ubuntu@IP_DA_VPS:~/secretaria/credentials/
 ```bash
 # Na VPS:
 # Copie o template e abra para edição
-sudo cp ~/secretaria/nginx/secretary.conf /etc/nginx/sites-available/secretary
-sudo nano /etc/nginx/sites-available/secretary
+sudo cp ~/skedly/nginx/skedly.conf /etc/nginx/sites-available/skedly
+sudo nano /etc/nginx/sites-available/skedly
 ```
 
 Substitua **todas** as ocorrências de `yourdomain.com` pelo seu domínio real. Salve e feche (`Ctrl+X`, `Y`, `Enter`).
 
 Ative o site e teste a configuração:
 ```bash
-sudo ln -s /etc/nginx/sites-available/secretary /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/skedly /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default   # remove o site padrão do Nginx
 sudo nginx -t                                  # deve mostrar "syntax is ok"
 sudo systemctl reload nginx
@@ -264,7 +264,7 @@ sudo systemctl status certbot.timer   # deve estar ativo
 
 ```bash
 # Na VPS:
-cd ~/secretaria
+cd ~/skedly
 
 # Build e subir o container
 docker compose up -d --build
@@ -346,7 +346,7 @@ sudo certbot renew --dry-run
 
 ```bash
 # Na VPS:
-cd ~/secretaria
+cd ~/skedly
 git pull
 docker compose up -d --build
 ```

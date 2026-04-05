@@ -1,4 +1,4 @@
-"""LangGraph StateGraph builder for the SecretarIA agent."""
+"""LangGraph StateGraph builder for the Skedly agent."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_graph(checkpointer: AsyncSqliteSaver | None = None):
-    """Compile and return the SecretarIA LangGraph.
+    """Compile and return the Skedly LangGraph.
 
     Graph topology (Phase 2)::
 
@@ -62,5 +62,5 @@ def build_graph(checkpointer: AsyncSqliteSaver | None = None):
     graph.add_edge("format_response", END)
 
     compiled = graph.compile(checkpointer=checkpointer)
-    logger.info("SecretarIA graph compiled successfully")
+    logger.info("Skedly graph compiled successfully")
     return compiled

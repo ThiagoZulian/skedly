@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Central configuration for SecretarIA.
+    """Central configuration for Skedly.
 
     All values are read from environment variables or the .env file.
     Fields without defaults are required; fields with None defaults are optional.
@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # ── LangSmith (optional) ──────────────────────────────────────────────────
     langsmith_api_key: str | None = Field(default=None, description="LangSmith API key")
     langsmith_project: str = Field(
-        default="secretaria", description="LangSmith project name"
+        default="skedly", description="LangSmith project name"
     )
     langsmith_tracing: bool = Field(
         default=False, description="Enable LangSmith tracing"

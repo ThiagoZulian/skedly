@@ -1,4 +1,4 @@
-# SecretarIA
+# Skedly
 
 Assistente pessoal de IA com LangGraph, integrado a Telegram, Google Calendar e ClickUp.
 

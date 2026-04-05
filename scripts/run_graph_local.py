@@ -29,7 +29,7 @@ graph = build_graph()
 
 async def repl() -> None:
     """Run an interactive input/output loop against the compiled graph."""
-    print("SecretarIA — local REPL (type 'exit' to quit)\n")
+    print("Skedly — local REPL (type 'exit' to quit)\n")
     thread_id = "local-test"
 
     while True:
@@ -56,7 +56,7 @@ async def repl() -> None:
         config = {"configurable": {"thread_id": thread_id}}
 
         result = await graph.ainvoke(state, config=config)
-        print(f"SecretarIA [{result.get('intent', '?')}]: {result.get('response', '')}\n")
+        print(f"Skedly [{result.get('intent', '?')}]: {result.get('response', '')}\n")
 
 
 if __name__ == "__main__":
