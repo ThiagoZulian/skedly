@@ -48,3 +48,17 @@ pytest
 ```bash
 ruff check src/
 ```
+
+## Roadmap / TODO
+
+### Em aberto
+
+- **Billing Google AI Studio** — free tier limita a 20 req/dia; habilitar para validar multi-turn e multi-calendar em produção
+- **Testar ClickUp em produção** — tools implementadas desde Fase 2, nunca validadas no ambiente real
+- **Unificar classify + plan para intents simples** — reduzir de 2-3 chamadas ao LLM por turno para 1-2
+
+### Backlog
+
+- Roteamento para LLM local via Ollama (RX 9070 XT)
+- Suporte real a múltiplos usuários (isolamento de contexto)
+- Interface web mínima para visualizar reminders e histórico
