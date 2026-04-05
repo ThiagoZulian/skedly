@@ -39,6 +39,11 @@ def _configure_logging() -> None:
         )
         handler.setFormatter(formatter)
         root.addHandler(handler)
+        # Propagate JSON handler to library loggers that own their own handlers
+        for lib in ("uvicorn", "uvicorn.access", "uvicorn.error", "apscheduler"):
+            lib_logger = logging.getLogger(lib)
+            lib_logger.handlers = [handler]
+            lib_logger.propagate = False
     else:
         logging.basicConfig(
             level=logging.INFO,

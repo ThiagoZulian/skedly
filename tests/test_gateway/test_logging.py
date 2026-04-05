@@ -80,3 +80,38 @@ def test_json_logging_configures_json_formatter() -> None:
             assert isinstance(root.handlers[0].formatter, jsonlogger.JsonFormatter)
     finally:
         root.handlers = original_handlers
+
+
+def test_json_logging_propagates_to_library_loggers() -> None:
+    """When LOG_FORMAT=json, uvicorn and apscheduler loggers use the JSON handler."""
+    from pythonjsonlogger import json as jsonlogger
+
+    root = logging.getLogger()
+    original_root_handlers = root.handlers[:]
+    root.handlers = []
+
+    # Save and reset library loggers
+    lib_names = ("uvicorn", "uvicorn.access", "uvicorn.error", "apscheduler")
+    originals = {n: (logging.getLogger(n).handlers[:], logging.getLogger(n).propagate)
+                 for n in lib_names}
+    for n in lib_names:
+        logging.getLogger(n).handlers = []
+
+    try:
+        from src.config import settings
+        with patch.object(settings, "log_format", "json"):
+            from src.gateway.app import _configure_logging
+            _configure_logging()
+
+            for name in lib_names:
+                lib_logger = logging.getLogger(name)
+                assert lib_logger.handlers, f"{name} should have a handler"
+                assert isinstance(lib_logger.handlers[0].formatter, jsonlogger.JsonFormatter), (
+                    f"{name} handler should use JsonFormatter"
+                )
+    finally:
+        root.handlers = original_root_handlers
+        for n, (handlers, propagate) in originals.items():
+            lib_logger = logging.getLogger(n)
+            lib_logger.handlers = handlers
+            lib_logger.propagate = propagate
