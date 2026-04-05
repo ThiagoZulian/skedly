@@ -1,16 +1,15 @@
-version: "3.12"
-
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      # Bind to localhost only — Nginx handles the public HTTPS traffic.
+      # Change to "8000:8000" if testing without Nginx (not recommended in production).
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     volumes:
-      - ./.env:/app/.env:ro
       - ./credentials:/app/credentials:ro
       - ./data:/app/data
     restart: unless-stopped
@@ -19,4 +18,4 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
