@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src.graph.state import AgentState
 from src.llm.providers import get_gemini_flash
@@ -15,14 +15,16 @@ logger = logging.getLogger(__name__)
 _SYSTEM_PROMPT_PATH = Path(__file__).parents[3] / "prompts" / "system.md"
 
 
-def _extract_text(content: str | list) -> str:
+def _extract_text(content: str | list | dict) -> str:
     """Extract plain text from an LLM message content.
 
-    Handles both plain strings and lists of content blocks (e.g. Claude Sonnet
-    returns ``[{'type': 'text', 'text': '...', 'extras': {...}}]``).
+    Handles plain strings, single content block dicts, and lists of blocks.
+    Gemini 2.5 may return either a list or a single dict with a ``text`` key.
     """
     if isinstance(content, str):
         return content.strip()
+    if isinstance(content, dict):
+        return content.get("text", str(content)).strip()
     if isinstance(content, list):
         parts = [
             block.get("text", "") if isinstance(block, dict) else str(block)
@@ -58,11 +60,21 @@ async def format_response(state: AgentState) -> dict:
                 return {"response": response}
 
     # No usable AI message — call LLM directly (general_chat path)
+    # Sanitize message history so content blocks don't leak into the LLM call.
     logger.info("format_response: calling LLM for general_chat response")
     try:
         llm = get_gemini_flash()
         system = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-        ai_response = await llm.ainvoke([SystemMessage(content=system), *messages])
+        clean_messages = [
+            (
+                HumanMessage(content=_extract_text(m.content))
+                if isinstance(m, HumanMessage)
+                else AIMessage(content=_extract_text(m.content))
+            )
+            for m in messages
+            if isinstance(m, (HumanMessage, AIMessage))
+        ]
+        ai_response = await llm.ainvoke([SystemMessage(content=system), *clean_messages])
         return {"response": _extract_text(ai_response.content)}
     except Exception:
         logger.exception("format_response LLM call failed")

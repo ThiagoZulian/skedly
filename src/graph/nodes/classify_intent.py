@@ -58,9 +58,16 @@ async def classify_intent(state: AgentState) -> dict:
         logger.warning("classify_intent called with empty messages; defaulting to general_chat")
         return {"intent": _FALLBACK_INTENT}
 
-    # Extract the text of the last human message.
+    # Extract the text of the last human message — content may be a str, list,
+    # or dict depending on the LLM provider returning the message.
     last_message = messages[-1]
-    user_text = last_message.content if hasattr(last_message, "content") else str(last_message)
+    raw = last_message.content if hasattr(last_message, "content") else str(last_message)
+    if isinstance(raw, list):
+        user_text = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in raw)
+    elif isinstance(raw, dict):
+        user_text = raw.get("text", str(raw))
+    else:
+        user_text = str(raw)
 
     system_prompt = _load_prompt()
     llm = get_gemini_flash()
@@ -72,7 +79,12 @@ async def classify_intent(state: AgentState) -> dict:
                 HumanMessage(content=user_text),
             ]
         )
-        raw_intent = response.content.strip().lower()
+        content = response.content
+        if isinstance(content, list):
+            content = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+        elif isinstance(content, dict):
+            content = content.get("text", str(content))
+        raw_intent = str(content).strip().lower()
 
         # Guard against hallucinated categories.
         intent = raw_intent if raw_intent in VALID_INTENTS else _FALLBACK_INTENT
