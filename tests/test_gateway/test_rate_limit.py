@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 VALID_SECRET = "test-secret"
@@ -42,8 +41,8 @@ def _make_client() -> TestClient:
 @pytest.mark.asyncio
 async def test_rate_limit_blocks_after_threshold() -> None:
     """Requests beyond the per-minute limit should receive HTTP 429."""
-    from src.gateway.app import app
     from src.config import settings
+    from src.gateway.app import app
 
     # Patch the limit to 2/minute so we can hit it quickly in tests.
     with (
@@ -68,8 +67,6 @@ async def test_rate_limit_blocks_after_threshold() -> None:
         mock_graph.ainvoke = AsyncMock(return_value={"response": "ok"})
 
         # Use limits storage that resets between tests
-        from slowapi import Limiter
-        from slowapi.util import get_remote_address
         from src.gateway.limiter import limiter
 
         # Reset storage
@@ -91,10 +88,12 @@ async def test_rate_limit_blocks_after_threshold() -> None:
 @pytest.mark.asyncio
 async def test_rate_limit_429_response_format() -> None:
     """HTTP 429 from the rate limiter contains a Portuguese error message."""
-    from src.gateway.app import rate_limit_handler
-    from fastapi import Request
-    from unittest.mock import MagicMock
     import json
+    from unittest.mock import MagicMock
+
+    from fastapi import Request
+
+    from src.gateway.app import rate_limit_handler
 
     scope = {
         "type": "http",

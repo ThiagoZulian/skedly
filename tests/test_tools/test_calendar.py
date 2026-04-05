@@ -31,7 +31,7 @@ async def test_list_events_with_items():
     events = [{"id": "1", "summary": "Standup", "start": {"dateTime": "2026-04-07T09:00:00-03:00"}}]
     with patch("src.tools.calendar.get_calendar_service", return_value=_make_service(events=events)):
         from src.tools.calendar import list_events
-        result = await list_events.ainvoke({"days_ahead": 7})
+        result = await list_events.ainvoke({"days_ahead": 7, "calendar_id": "primary"})
     assert "Standup" in result
     assert "1" in result
 
@@ -101,7 +101,7 @@ async def test_find_free_slots_all_busy_returns_no_slots():
     busy = [{"start": "2026-04-07T08:00:00-03:00", "end": "2026-04-07T20:00:00-03:00"}]
     with patch("src.tools.calendar.get_calendar_service", return_value=_make_service(busy=busy)):
         from src.tools.calendar import find_free_slots
-        result = await find_free_slots.ainvoke({"date": "2026-04-07", "duration_minutes": 60})
+        result = await find_free_slots.ainvoke({"date": "2026-04-07", "duration_minutes": 60, "calendar_id": "primary"})
     assert "Sem horários" in result
 
 
@@ -110,6 +110,27 @@ async def test_find_free_slots_error_returns_string():
     with patch("src.tools.calendar.get_calendar_service", side_effect=Exception("quota")):
         from src.tools.calendar import find_free_slots
         result = await find_free_slots.ainvoke({"date": "2026-04-07", "duration_minutes": 30})
+    assert "Erro" in result
+
+
+@pytest.mark.asyncio
+async def test_delete_calendar():
+    svc = MagicMock()
+    svc.calendars.return_value.delete.return_value.execute.return_value = {}
+    with patch("src.tools.calendar.get_calendar_service", return_value=svc):
+        from src.tools.calendar import delete_calendar
+        result = await delete_calendar.ainvoke({"calendar_id": "cal123"})
+    assert "deletada" in result.lower()
+    assert "cal123" in result
+
+
+@pytest.mark.asyncio
+async def test_delete_calendar_error_returns_string():
+    svc = MagicMock()
+    svc.calendars.return_value.delete.return_value.execute.side_effect = Exception("forbidden")
+    with patch("src.tools.calendar.get_calendar_service", return_value=svc):
+        from src.tools.calendar import delete_calendar
+        result = await delete_calendar.ainvoke({"calendar_id": "cal123"})
     assert "Erro" in result
 
 

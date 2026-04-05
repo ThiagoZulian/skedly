@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-
 # ── ClickUp _get / _post / _put ───────────────────────────────────────────────
 
 

@@ -113,9 +113,8 @@ def test_webhook_invalid_signature_rejected(monkeypatch):
         patch("src.gateway.routes.telegram._graph", mock_graph),
         patch("src.gateway.routes.telegram._send_telegram_message", AsyncMock()),
     ):
-        from src.gateway.app import app
-
         import src.config as cfg
+        from src.gateway.app import app
         cfg._settings = None
 
         with TestClient(app, raise_server_exceptions=False) as c:
@@ -138,9 +137,8 @@ def test_webhook_missing_signature_rejected(monkeypatch):
         patch("src.gateway.routes.telegram._graph", mock_graph),
         patch("src.gateway.routes.telegram._send_telegram_message", AsyncMock()),
     ):
-        from src.gateway.app import app
-
         import src.config as cfg
+        from src.gateway.app import app
         cfg._settings = None
 
         with TestClient(app, raise_server_exceptions=False) as c:

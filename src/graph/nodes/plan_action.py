@@ -47,6 +47,12 @@ async def plan_action(state: AgentState) -> dict:
     context = state.get("context", {})
     messages = list(state["messages"])
 
+    # Limit context window to the last 20 messages (~10 turns) to avoid
+    # unbounded token growth across long sessions.
+    _MAX_MESSAGES = 20
+    if len(messages) > _MAX_MESSAGES:
+        messages = messages[-_MAX_MESSAGES:]
+
     # Pass routing hints so the router can escalate when needed
     last_text = messages[-1].content if messages else ""
     message_length = len(str(last_text))

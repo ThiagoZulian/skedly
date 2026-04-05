@@ -79,7 +79,7 @@ async def format_response(state: AgentState) -> dict:
                 else AIMessage(content=_extract_text(m.content))
             )
             for m in messages
-            if isinstance(m, (HumanMessage, AIMessage))
+            if isinstance(m, HumanMessage | AIMessage)
         ]
         ai_response = await llm.ainvoke([SystemMessage(content=system), *clean_messages])
         return {"response": _extract_text(ai_response.content)}

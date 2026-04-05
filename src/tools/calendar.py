@@ -299,6 +299,32 @@ async def delete_event(event_id: str, calendar_id: str = "primary") -> str:
 
 
 @tool
+async def delete_calendar(calendar_id: str) -> str:
+    """Deleta uma agenda do Google Calendar pelo seu ID.
+
+    Não é possível deletar a agenda principal (``"primary"``).
+    Use ``list_calendars`` para obter os IDs das agendas disponíveis.
+
+    Args:
+        calendar_id: ID da agenda a deletar (obtido via ``list_calendars``).
+
+    Returns:
+        Confirmação de deleção ou mensagem de erro.
+    """
+
+    def _sync() -> str:
+        service = get_calendar_service()
+        service.calendars().delete(calendarId=calendar_id).execute()
+        return f"Agenda {calendar_id} deletada com sucesso."
+
+    try:
+        return await asyncio.to_thread(_sync)
+    except Exception as exc:
+        logger.exception("delete_calendar failed")
+        return f"Erro ao deletar agenda {calendar_id}: {exc}"
+
+
+@tool
 async def create_calendar(name: str, description: str = "") -> str:
     """Cria uma nova agenda no Google Calendar do usuário.
 
@@ -334,4 +360,5 @@ CALENDAR_TOOLS = [
     find_free_slots,
     delete_event,
     create_calendar,
+    delete_calendar,
 ]

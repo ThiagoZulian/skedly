@@ -2,8 +2,6 @@
 
 from datetime import date, timedelta
 
-import pytest
-
 from src.tools.datetime_utils import (
     format_date_br,
     get_current_datetime,

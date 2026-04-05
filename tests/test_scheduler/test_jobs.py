@@ -165,7 +165,7 @@ async def test_send_daily_briefing_sends_briefing():
 
     client.post.assert_awaited_once()
     payload = client.post.call_args.kwargs.get("json") or client.post.call_args[1].get("json", {})
-    assert "12345" == str(payload.get("chat_id"))
+    assert str(payload.get("chat_id")) == "12345"
     assert "Briefing" in payload.get("text", "")
 
 
@@ -233,7 +233,7 @@ async def test_check_deadlines_sends_alert_when_tasks_found():
     clickup_client.post.assert_awaited_once()
     payload = clickup_client.post.call_args.kwargs.get("json") or {}
     assert "Deploy produção" in payload.get("text", "")
-    assert "42" == str(payload.get("chat_id"))
+    assert str(payload.get("chat_id")) == "42"
 
 
 @pytest.mark.asyncio

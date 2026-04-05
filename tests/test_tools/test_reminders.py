@@ -7,10 +7,10 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_create_reminder():
-    mock_reminder = MagicMock(id=1)
     mock_session = AsyncMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.add = MagicMock()  # sync in SQLAlchemy async API
     mock_session.commit = AsyncMock()
     mock_session.refresh = AsyncMock(side_effect=lambda r: setattr(r, "id", 1))
 

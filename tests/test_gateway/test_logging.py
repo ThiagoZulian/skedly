@@ -10,7 +10,6 @@ from unittest.mock import patch
 
 def test_json_logging_format_produces_valid_json() -> None:
     """When LOG_FORMAT=json the handler emits valid JSON lines."""
-    from src.config import settings
     from pythonjsonlogger import json as jsonlogger
 
     stream = StringIO()

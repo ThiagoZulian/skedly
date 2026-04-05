@@ -67,9 +67,9 @@ def test_client():
     )
 
     with patch("src.gateway.routes.telegram._graph", mock_graph):
-        from src.gateway.app import app
-
         from fastapi.testclient import TestClient
+
+        from src.gateway.app import app
 
         client = TestClient(app, raise_server_exceptions=True)
         yield client

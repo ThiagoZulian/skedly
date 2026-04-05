@@ -15,7 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 VALID_SECRET = "test-secret-integration"
@@ -77,9 +76,9 @@ def real_graph():
 @pytest.mark.asyncio
 async def test_webhook_query_calendar_returns_events() -> None:
     """POST /webhook/telegram 'qual minha agenda?' → agent returns calendar response."""
-    from src.config import settings
-    from src.graph.builder import build_graph
     from fastapi.testclient import TestClient
+
+    from src.graph.builder import build_graph
 
     classify_llm = _make_llm_mock("query_calendar")
     plan_llm = _make_llm_mock("Você não tem eventos nos próximos 7 dias.")
@@ -99,8 +98,8 @@ async def test_webhook_query_calendar_returns_events() -> None:
         patch("src.memory.preferences.get_all_preferences", new_callable=AsyncMock, return_value={}),
         patch("src.memory.conversation.get_recent_conversations", new_callable=AsyncMock, return_value=[]),
     ):
-        from src.gateway.app import app
         import src.gateway.routes.telegram as tg
+        from src.gateway.app import app
 
         graph = build_graph()
         tg._graph = graph
@@ -123,8 +122,9 @@ async def test_webhook_query_calendar_returns_events() -> None:
 @pytest.mark.asyncio
 async def test_webhook_general_chat_returns_response() -> None:
     """POST /webhook/telegram 'olá' → general_chat intent → agent replies."""
-    from src.graph.builder import build_graph
     from fastapi.testclient import TestClient
+
+    from src.graph.builder import build_graph
 
     classify_llm = _make_llm_mock("general_chat")
     chat_llm = _make_llm_mock("Olá! Como posso ajudar você hoje?")
@@ -140,8 +140,8 @@ async def test_webhook_general_chat_returns_response() -> None:
         patch("src.memory.preferences.set_preference", new_callable=AsyncMock),
         patch("src.memory.conversation.save_conversation", new_callable=AsyncMock),
     ):
-        from src.gateway.app import app
         import src.gateway.routes.telegram as tg
+        from src.gateway.app import app
 
         graph = build_graph()
         tg._graph = graph
@@ -229,8 +229,8 @@ async def test_check_deadlines_sends_alert_for_upcoming_tasks() -> None:
         mock_client.get = AsyncMock(return_value=mock_resp)
         mock_client_cls.return_value = mock_client
 
-        from src.scheduler.jobs import check_deadlines
         from src.config import settings
+        from src.scheduler.jobs import check_deadlines
 
         with patch.object(settings, "clickup_default_list_id", "list123"):
             await check_deadlines("99")

@@ -96,7 +96,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="Skedly",
     description="Assistente pessoal de IA com LangGraph, Telegram, Google Calendar e ClickUp.",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -146,7 +146,7 @@ async def health() -> dict[str, str]:
         "status": "ok",
         "db": db_status,
         "scheduler": scheduler_status,
-        "version": "0.3.0",
+        "version": "0.4.0",
     }
 
 

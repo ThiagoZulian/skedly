@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "skedly"
-version = "0.3.0"
+version = "0.4.0"
 description = "Assistente pessoal de IA com LangGraph, integrado a Telegram, Google Calendar e ClickUp"
 requires-python = ">=3.12"
 authors = [{ name = "Zeus" }]
