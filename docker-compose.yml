@@ -10,7 +10,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./credentials:/app/credentials:ro
+      - ./credentials:/app/credentials
       - ./data:/app/data
     restart: unless-stopped
     healthcheck:
