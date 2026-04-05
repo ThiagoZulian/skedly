@@ -121,6 +121,10 @@ async def list_events(days_ahead: int = 7, calendar_id: str = "all") -> str:
                     .execute()
                 )
                 for ev in result.get("items", []):
+                    # Skip working location and focus time entries — these are
+                    # Google Calendar status markers, not real appointments.
+                    if ev.get("eventType") in ("workingLocation", "focusTime"):
+                        continue
                     raw = ev["start"].get("dateTime", ev["start"].get("date", ""))
                     try:
                         dt = datetime.fromisoformat(raw).astimezone(_TZ)
