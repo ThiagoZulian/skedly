@@ -2,13 +2,14 @@
 
 ## Conceitos importantes (leitura de 2 minutos)
 
-**Por que preciso de HTTPS?**  
+**Por que preciso de HTTPS?**
 O Telegram só entrega mensagens ao seu bot via webhook HTTPS. Sem SSL, o bot não funciona em produção. Por isso precisamos de Nginx (proxy) + certificado SSL gratuito do Let's Encrypt.
 
-**Por que preciso de um domínio?**  
+**Por que preciso de um domínio?**
 O Let's Encrypt valida que você é dono do domínio para emitir o certificado. Sem isso, não tem SSL, sem SSL, não tem webhook.
 
 **Fluxo resumido:**
+
 ```
 Telegram → HTTPS (porta 443) → Nginx na VPS → HTTP local (porta 8000) → FastAPI no Docker
 ```
@@ -34,6 +35,7 @@ curl -X POST http://localhost:8000/webhook/telegram \
 ```
 
 Confirme que ele existe:
+
 ```bash
 ls credentials/token.json   # deve aparecer o arquivo
 ```
@@ -45,10 +47,12 @@ ls credentials/token.json   # deve aparecer o arquivo
 Você precisa de um domínio apontando para o IP da sua VPS.
 
 **Opção A — Domínio pago (~R$50/ano):**
+
 - [Registro.br](https://registro.br) para `.com.br`
 - [Namecheap](https://namecheap.com) para `.com` (mais barato)
 
 **Opção B — Subdomínio gratuito:**
+
 - [DuckDNS](https://www.duckdns.org) — cria `seunome.duckdns.org` gratuitamente
   1. Acesse duckdns.org, faça login com Google
   2. Crie um subdomínio (ex: `skedly-thiago.duckdns.org`)
@@ -69,6 +73,7 @@ Você precisa de um domínio apontando para o IP da sua VPS.
 4. Anote o **IP público** da VPS após a criação
 
 **Gerar chave SSH (se não tiver):**
+
 ```bash
 # No seu computador:
 ssh-keygen -t ed25519 -C "skedly-deploy"
@@ -83,11 +88,12 @@ cat ~/.ssh/id_ed25519.pub
 
 No painel do seu registrador de domínio (Registro.br, Namecheap, DuckDNS etc.), crie um registro **A**:
 
-| Tipo | Nome | Valor            |
-|------|------|------------------|
+| Tipo | Nome | Valor             |
+| ---- | ---- | ----------------- |
 | A    | @    | IP_PUBLICO_DA_VPS |
 
 Aguarde alguns minutos para propagar. Teste:
+
 ```bash
 ping yourdomain.com   # deve mostrar o IP da sua VPS
 ```
@@ -126,6 +132,7 @@ sudo nano /etc/ssh/sshd_config
 ```
 
 Encontre e altere (ou adicione) estas linhas:
+
 ```
 PermitRootLogin no
 PasswordAuthentication no
@@ -169,6 +176,7 @@ sudo systemctl start nginx
 ## 7. Subir o código para a VPS
 
 **Opção A — Via Git (recomendado se o repo estiver no GitHub):**
+
 ```bash
 # Na VPS:
 cd ~
@@ -177,6 +185,7 @@ cd skedly
 ```
 
 **Opção B — Via rsync (do seu computador):**
+
 ```bash
 # No seu computador:
 rsync -avz \
@@ -205,7 +214,7 @@ LOG_FORMAT=json
 TELEGRAM_CHAT_ID=SEU_CHAT_ID_DO_TELEGRAM
 ```
 
-> Para descobrir seu `TELEGRAM_CHAT_ID`: mande uma mensagem pro seu bot e acesse  
+> Para descobrir seu `TELEGRAM_CHAT_ID`: mande uma mensagem pro seu bot e acesse
 > `https://api.telegram.org/botSEU_TOKEN/getUpdates` — o número em `"id"` dentro de `"chat"` é o chat_id.
 
 ---
@@ -232,6 +241,7 @@ sudo nano /etc/nginx/sites-available/skedly
 Substitua **todas** as ocorrências de `yourdomain.com` pelo seu domínio real. Salve e feche (`Ctrl+X`, `Y`, `Enter`).
 
 Ative o site e teste a configuração:
+
 ```bash
 sudo ln -s /etc/nginx/sites-available/skedly /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default   # remove o site padrão do Nginx
@@ -249,11 +259,13 @@ sudo certbot --nginx -d yourdomain.com
 ```
 
 O Certbot vai:
+
 1. Perguntar seu e-mail (para notificações de renovação)
 2. Perguntar se aceita os termos
 3. Emitir o certificado e atualizar o Nginx automaticamente
 
 Verifique a renovação automática:
+
 ```bash
 sudo systemctl status certbot.timer   # deve estar ativo
 ```
@@ -288,6 +300,7 @@ docker compose exec app python scripts/setup_telegram_webhook.py https://yourdom
 ```
 
 Verifique:
+
 ```bash
 docker compose exec app python -c "
 import asyncio, httpx
@@ -309,6 +322,7 @@ O campo `url` deve mostrar `https://yourdomain.com/webhook/telegram`.
 Mande uma mensagem pro seu bot no Telegram. A resposta deve chegar em segundos.
 
 Se não funcionar, veja os logs:
+
 ```bash
 docker compose logs -f --tail=50
 ```
@@ -355,10 +369,10 @@ docker compose up -d --build
 
 ## Troubleshooting comum
 
-| Sintoma | Causa provável | Solução |
-|---------|---------------|---------|
-| Bot não responde | Webhook não registrado | Repita o passo 13 |
-| `curl localhost:8000/health` falha | Container não subiu | `docker compose logs` para ver o erro |
-| Erro de Google Calendar | `token.json` ausente ou expirado | Reenvie o arquivo (passo 9) |
-| Nginx 502 Bad Gateway | Container parado | `docker compose up -d` |
-| Certbot falha | Domínio não aponta para a VPS | Verifique o registro DNS (passo 3) |
+| Sintoma                              | Causa provável                    | Solução                               |
+| ------------------------------------ | ---------------------------------- | --------------------------------------- |
+| Bot não responde                    | Webhook não registrado            | Repita o passo 13                       |
+| `curl localhost:8000/health` falha | Container não subiu               | `docker compose logs` para ver o erro |
+| Erro de Google Calendar              | `token.json` ausente ou expirado | Reenvie o arquivo (passo 9)             |
+| Nginx 502 Bad Gateway                | Container parado                   | `docker compose up -d`                |
+| Certbot falha                        | Domínio não aponta para a VPS    | Verifique o registro DNS (passo 3)      |

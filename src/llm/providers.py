@@ -24,7 +24,7 @@ def get_gemini_flash() -> ChatGoogleGenerativeAI:
         Configured Gemini 2.5 Flash chat model.
     """
     return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-preview-04-17",
+        model="gemini-2.5-flash",
         google_api_key=settings.google_ai_api_key,
         temperature=0.2,
         max_output_tokens=2048,
@@ -42,7 +42,7 @@ def get_gemini_pro() -> ChatGoogleGenerativeAI:
         Configured Gemini 2.5 Pro chat model.
     """
     return ChatGoogleGenerativeAI(
-        model="gemini-2.5-pro-preview-03-25",
+        model="gemini-2.5-pro",
         google_api_key=settings.google_ai_api_key,
         temperature=0.3,
         max_output_tokens=8192,
