@@ -7,11 +7,21 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from src.config import settings
 from src.gateway.limiter import limiter
 from src.gateway.validators import validate_telegram_secret
 from src.graph.builder import build_graph
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Retry on 5xx and timeouts only."""
+    if isinstance(exc, httpx.TimeoutException):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return False
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +87,16 @@ class TelegramUpdate(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
+@retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
 async def _send_telegram_message(chat_id: int, text: str) -> None:
     """Send a text message back to a Telegram chat via the Bot API.
+
+    Retries up to 3 times on 5xx responses and timeouts (not 4xx).
 
     Args:
         chat_id: Target Telegram chat ID.
@@ -92,12 +110,7 @@ async def _send_telegram_message(chat_id: int, text: str) -> None:
     }
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(url, json=payload)
-        if resp.status_code != 200:
-            logger.error(
-                "Telegram sendMessage failed: status=%d body=%s",
-                resp.status_code,
-                resp.text[:200],
-            )
+        resp.raise_for_status()
 
 
 # ── Route ─────────────────────────────────────────────────────────────────────

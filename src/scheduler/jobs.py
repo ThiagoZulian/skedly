@@ -41,6 +41,29 @@ def _is_retryable_http(exc: BaseException) -> bool:
     wait=wait_exponential(multiplier=1, min=1, max=8),
     reraise=True,
 )
+async def _fetch_deadline_tasks(url: str, headers: dict, params: dict) -> dict:
+    """GET ClickUp tasks with retry on 5xx / timeout.
+
+    Args:
+        url: Full ClickUp API URL.
+        headers: Auth headers.
+        params: Query parameters (due_date_gt, due_date_lt, etc.).
+
+    Returns:
+        Parsed JSON response dict.
+    """
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(url, headers=headers, params=params)
+        resp.raise_for_status()
+        return resp.json()
+
+
+@retry(
+    retry=retry_if_exception(_is_retryable_http),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
 async def _send_telegram(chat_id: str, text: str) -> None:
     """Send a text message to a Telegram chat via the Bot API.
 
@@ -174,10 +197,7 @@ async def check_deadlines(chat_id: str) -> None:
             "include_closed": "false",
         }
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(url, headers=headers, params=params)
-            resp.raise_for_status()
-            data = resp.json()
+        data = await _fetch_deadline_tasks(url, headers, params)
 
         tasks = data.get("tasks", [])
         if not tasks:
