@@ -28,6 +28,7 @@ def get_gemini_flash() -> ChatGoogleGenerativeAI:
         google_api_key=settings.google_ai_api_key,
         temperature=0.2,
         max_output_tokens=2048,
+        max_retries=0,  # disable built-in retries — tenacity handles this
     )
 
 
@@ -46,4 +47,5 @@ def get_gemini_pro() -> ChatGoogleGenerativeAI:
         google_api_key=settings.google_ai_api_key,
         temperature=0.3,
         max_output_tokens=8192,
+        max_retries=0,  # disable built-in retries — tenacity handles this
     )
