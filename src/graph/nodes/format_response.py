@@ -51,8 +51,15 @@ async def format_response(state: AgentState) -> dict:
     """
     messages = state.get("messages", [])
 
-    # Look for the last AI message without pending tool_calls
-    for msg in reversed(messages):
+    # Only consider AIMessages that appear after the last HumanMessage —
+    # avoids returning stale responses from previous turns in persisted history.
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+
+    for msg in reversed(messages[last_human_idx + 1:]):
         if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
             response = _extract_text(msg.content)
             if response:
