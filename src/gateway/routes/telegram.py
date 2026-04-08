@@ -96,20 +96,23 @@ class TelegramUpdate(BaseModel):
 async def _send_telegram_message(chat_id: int, text: str) -> None:
     """Send a text message back to a Telegram chat via the Bot API.
 
-    Retries up to 3 times on 5xx responses and timeouts (not 4xx).
+    Tries with Markdown parse_mode first; falls back to plain text if Telegram
+    returns 400 (invalid Markdown from the LLM). Retries up to 3 times on 5xx
+    responses and timeouts.
 
     Args:
         chat_id: Target Telegram chat ID.
-        text: Message text (supports Markdown v2 parse mode).
+        text: Message text.
     """
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown",
-    }
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(url, json=payload)
+        resp = await client.post(
+            url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+        )
+        if resp.status_code == 400:
+            # Markdown inválido rejeitado pelo Telegram — reenvia como texto puro
+            logger.warning("sendMessage 400 for chat_id=%d, retrying without parse_mode", chat_id)
+            resp = await client.post(url, json={"chat_id": chat_id, "text": text})
         resp.raise_for_status()
 
 
@@ -211,6 +214,11 @@ async def telegram_webhook(
         logger.warning("Failed to persist conversation for user=%s", user_id)
 
     # ── Reply to user ─────────────────────────────────────────────────────────
-    await _send_telegram_message(chat_id, response_text)
+    # Wrapped in try/except so a send failure never returns HTTP 500, which
+    # would cause Telegram to re-queue and reprocess the same update.
+    try:
+        await _send_telegram_message(chat_id, response_text)
+    except Exception:
+        logger.exception("Failed to send Telegram reply to chat_id=%d", chat_id)
 
     return {"status": "ok"}
