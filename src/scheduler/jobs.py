@@ -32,7 +32,33 @@ def _is_retryable_http(exc: BaseException) -> bool:
     return False
 
 
+def _is_retryable_llm(exc: BaseException) -> bool:
+    """Retry on transient LLM overload errors (e.g. Gemini 503 UNAVAILABLE)."""
+    msg = str(exc)
+    return "503" in msg or "UNAVAILABLE" in msg
+
+
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+
+@retry(
+    retry=retry_if_exception(_is_retryable_llm),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=2, min=5, max=30),
+    reraise=True,
+)
+async def _invoke_llm(llm, messages: list) -> str:
+    """Invoke an LLM and return the text content, retrying on transient 503 errors.
+
+    Args:
+        llm: Any LangChain chat model instance.
+        messages: List of LangChain message objects to send.
+
+    Returns:
+        The model's response as a plain string.
+    """
+    ai_response = await llm.ainvoke(messages)
+    return ai_response.content  # type: ignore[return-value]
 
 
 @retry(
@@ -148,10 +174,20 @@ async def send_daily_briefing(chat_id: str) -> None:
         from src.llm.providers import get_gemini_flash
 
         llm = get_gemini_flash()
-        ai_response = await llm.ainvoke(
-            [SystemMessage(content=system_prompt), HumanMessage(content=user_content)]
-        )
-        briefing_text: str = ai_response.content  # type: ignore[assignment]
+        try:
+            briefing_text = await _invoke_llm(
+                llm, [SystemMessage(content=system_prompt), HumanMessage(content=user_content)]
+            )
+        except Exception:
+            logger.exception(
+                "send_daily_briefing: LLM failed after retries for chat_id=%s", chat_id
+            )
+            await _send_telegram(
+                chat_id,
+                "⚠️ Não consegui gerar o briefing de hoje — o modelo de IA está indisponível. "
+                "Tente pedir manualmente quando quiser.",
+            )
+            return
 
         # ── Send via Telegram ─────────────────────────────────────────────────
         await _send_telegram(chat_id, briefing_text)
