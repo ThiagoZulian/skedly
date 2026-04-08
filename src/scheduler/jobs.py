@@ -93,14 +93,19 @@ async def _fetch_deadline_tasks(url: str, headers: dict, params: dict) -> dict:
 async def _send_telegram(chat_id: str, text: str) -> None:
     """Send a text message to a Telegram chat via the Bot API.
 
+    Tries with Markdown parse_mode first; falls back to plain text on 400
+    (invalid Markdown in LLM-generated content).
+
     Args:
         chat_id: Telegram chat/user ID.
-        text: Message text (Markdown supported).
+        text: Message text.
     """
     url = f"{_TELEGRAM_API}/bot{settings.telegram_bot_token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(url, json=payload)
+        resp = await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+        if resp.status_code == 400:
+            logger.warning("_send_telegram 400 for chat_id=%s, retrying without parse_mode", chat_id)
+            resp = await client.post(url, json={"chat_id": chat_id, "text": text})
         resp.raise_for_status()
 
 
