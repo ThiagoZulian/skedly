@@ -47,9 +47,9 @@ async def plan_action(state: AgentState) -> dict:
     context = state.get("context", {})
     messages = list(state["messages"])
 
-    # Limit context window to the last 20 messages (~10 turns) to avoid
-    # unbounded token growth across long sessions.
-    _MAX_MESSAGES = 20
+    # Limit context window to the last 10 messages (~5 turns) to avoid
+    # stale failed turns from previous sessions polluting the current request.
+    _MAX_MESSAGES = 10
     if len(messages) > _MAX_MESSAGES:
         messages = messages[-_MAX_MESSAGES:]
 

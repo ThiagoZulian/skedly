@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -13,6 +14,23 @@ from src.llm.providers import get_gemini_flash
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT_PATH = Path(__file__).parents[3] / "prompts" / "system.md"
+
+# Limit how many recent messages are passed to the LLM for general_chat.
+# Keeps old failed/stale turns from polluting new conversations.
+_GENERAL_CHAT_HISTORY_LIMIT = 6
+
+
+def _strip_code_blocks(text: str) -> str:
+    """Remove fenced code blocks from LLM responses before sending to the user.
+
+    Prevents leaked internal code (e.g. Gemini hallucinating Python execution)
+    from being delivered via Telegram.
+    """
+    # Remove ```lang\\n...\\n``` blocks (including their content)
+    text = re.sub(r"```[^\n]*\n.*?```", "[código removido]", text, flags=re.DOTALL)
+    # Remove any remaining stray ``` delimiters
+    text = re.sub(r"```", "", text)
+    return text.strip()
 
 
 def _extract_text(content: str | list | dict) -> str:
@@ -61,28 +79,31 @@ async def format_response(state: AgentState) -> dict:
 
     for msg in reversed(messages[last_human_idx + 1:]):
         if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
-            response = _extract_text(msg.content)
+            response = _strip_code_blocks(_extract_text(msg.content))
             if response:
                 logger.info("format_response: using existing AI message")
                 return {"response": response}
 
     # No usable AI message — call LLM directly (general_chat path)
     # Sanitize message history so content blocks don't leak into the LLM call.
+    # Limit to recent messages only to prevent stale failed turns from
+    # polluting the LLM context and causing it to answer old questions.
     logger.info("format_response: calling LLM for general_chat response")
     try:
         llm = get_gemini_flash()
         system = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+        recent_messages = messages[-_GENERAL_CHAT_HISTORY_LIMIT:]
         clean_messages = [
             (
                 HumanMessage(content=_extract_text(m.content))
                 if isinstance(m, HumanMessage)
                 else AIMessage(content=_extract_text(m.content))
             )
-            for m in messages
+            for m in recent_messages
             if isinstance(m, HumanMessage | AIMessage)
         ]
         ai_response = await llm.ainvoke([SystemMessage(content=system), *clean_messages])
-        return {"response": _extract_text(ai_response.content)}
+        return {"response": _strip_code_blocks(_extract_text(ai_response.content))}
     except Exception:
         logger.exception("format_response LLM call failed")
         return {"response": "Desculpe, não consegui processar sua mensagem. Tente novamente."}
