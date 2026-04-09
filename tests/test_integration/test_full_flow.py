@@ -93,6 +93,7 @@ async def test_webhook_query_calendar_returns_events() -> None:
             "src.gateway.routes.telegram._send_telegram_message",
             new_callable=AsyncMock,
         ) as mock_send,
+        patch("src.gateway.routes.telegram._check_or_register_user", AsyncMock(return_value=True)),
         patch("src.memory.preferences.set_preference", new_callable=AsyncMock),
         patch("src.memory.conversation.save_conversation", new_callable=AsyncMock),
         patch("src.memory.preferences.get_all_preferences", new_callable=AsyncMock, return_value={}),
@@ -137,6 +138,7 @@ async def test_webhook_general_chat_returns_response() -> None:
             "src.gateway.routes.telegram._send_telegram_message",
             new_callable=AsyncMock,
         ) as mock_send,
+        patch("src.gateway.routes.telegram._check_or_register_user", AsyncMock(return_value=True)),
         patch("src.memory.preferences.set_preference", new_callable=AsyncMock),
         patch("src.memory.conversation.save_conversation", new_callable=AsyncMock),
     ):

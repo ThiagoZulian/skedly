@@ -1,6 +1,7 @@
 """Tests for Google Calendar tools — Google API fully mocked."""
 
-from unittest.mock import MagicMock, patch
+from contextlib import contextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -18,9 +19,27 @@ def _make_service(events=None, busy=None):
     return svc
 
 
+@contextmanager
+def _patch_calendar(svc=None, *, creds_error=None):
+    """Patch get_credentials + build_calendar_service for calendar tool tests.
+
+    Args:
+        svc: Mock service to return from build_calendar_service.
+        creds_error: If set, get_credentials raises this exception instead.
+    """
+    if svc is None:
+        svc = _make_service()
+    mock_creds = AsyncMock(side_effect=creds_error) if creds_error else AsyncMock(return_value=MagicMock())
+    with (
+        patch("src.tools.calendar.get_credentials", mock_creds),
+        patch("src.tools.calendar.build_calendar_service", return_value=svc),
+    ):
+        yield svc
+
+
 @pytest.mark.asyncio
 async def test_list_events_empty():
-    with patch("src.tools.calendar.get_calendar_service", return_value=_make_service()):
+    with _patch_calendar():
         from src.tools.calendar import list_events
         result = await list_events.ainvoke({"days_ahead": 7})
     assert "Nenhum evento" in result
@@ -29,7 +48,7 @@ async def test_list_events_empty():
 @pytest.mark.asyncio
 async def test_list_events_with_items():
     events = [{"id": "1", "summary": "Standup", "start": {"dateTime": "2026-04-07T09:00:00-03:00"}}]
-    with patch("src.tools.calendar.get_calendar_service", return_value=_make_service(events=events)):
+    with _patch_calendar(_make_service(events=events)):
         from src.tools.calendar import list_events
         result = await list_events.ainvoke({"days_ahead": 7, "calendar_id": "primary"})
     assert "Standup" in result
@@ -38,7 +57,7 @@ async def test_list_events_with_items():
 
 @pytest.mark.asyncio
 async def test_create_event():
-    with patch("src.tools.calendar.get_calendar_service", return_value=_make_service()):
+    with _patch_calendar():
         from src.tools.calendar import create_event
         result = await create_event.ainvoke({
             "title": "Reunião", "start": "2026-04-07T14:00:00-03:00",
@@ -50,7 +69,7 @@ async def test_create_event():
 
 @pytest.mark.asyncio
 async def test_delete_event():
-    with patch("src.tools.calendar.get_calendar_service", return_value=_make_service()):
+    with _patch_calendar():
         from src.tools.calendar import delete_event
         result = await delete_event.ainvoke({"event_id": "evt123"})
     assert "deletado" in result.lower()
@@ -58,7 +77,7 @@ async def test_delete_event():
 
 @pytest.mark.asyncio
 async def test_find_free_slots_no_busy():
-    with patch("src.tools.calendar.get_calendar_service", return_value=_make_service(busy=[])):
+    with _patch_calendar(_make_service(busy=[])):
         from src.tools.calendar import find_free_slots
         result = await find_free_slots.ainvoke({"date": "2026-04-07", "duration_minutes": 60})
     assert "Horários livres" in result
@@ -66,7 +85,7 @@ async def test_find_free_slots_no_busy():
 
 @pytest.mark.asyncio
 async def test_list_events_error_returns_string():
-    with patch("src.tools.calendar.get_calendar_service", side_effect=Exception("auth error")):
+    with _patch_calendar(creds_error=Exception("auth error")):
         from src.tools.calendar import list_events
         result = await list_events.ainvoke({"days_ahead": 3})
     assert "Erro" in result
@@ -74,9 +93,9 @@ async def test_list_events_error_returns_string():
 
 @pytest.mark.asyncio
 async def test_create_event_error_returns_string():
-    svc = MagicMock()
+    svc = _make_service()
     svc.events.return_value.insert.return_value.execute.side_effect = Exception("forbidden")
-    with patch("src.tools.calendar.get_calendar_service", return_value=svc):
+    with _patch_calendar(svc):
         from src.tools.calendar import create_event
         result = await create_event.ainvoke({
             "title": "X", "start": "2026-04-07T14:00:00-03:00",
@@ -87,9 +106,9 @@ async def test_create_event_error_returns_string():
 
 @pytest.mark.asyncio
 async def test_delete_event_error_returns_string():
-    svc = MagicMock()
+    svc = _make_service()
     svc.events.return_value.delete.return_value.execute.side_effect = Exception("not found")
-    with patch("src.tools.calendar.get_calendar_service", return_value=svc):
+    with _patch_calendar(svc):
         from src.tools.calendar import delete_event
         result = await delete_event.ainvoke({"event_id": "ghost"})
     assert "Erro" in result
@@ -99,7 +118,7 @@ async def test_delete_event_error_returns_string():
 async def test_find_free_slots_all_busy_returns_no_slots():
     """When the entire day is blocked there should be no free slots."""
     busy = [{"start": "2026-04-07T08:00:00-03:00", "end": "2026-04-07T20:00:00-03:00"}]
-    with patch("src.tools.calendar.get_calendar_service", return_value=_make_service(busy=busy)):
+    with _patch_calendar(_make_service(busy=busy)):
         from src.tools.calendar import find_free_slots
         result = await find_free_slots.ainvoke({"date": "2026-04-07", "duration_minutes": 60, "calendar_id": "primary"})
     assert "Sem horários" in result
@@ -107,7 +126,7 @@ async def test_find_free_slots_all_busy_returns_no_slots():
 
 @pytest.mark.asyncio
 async def test_find_free_slots_error_returns_string():
-    with patch("src.tools.calendar.get_calendar_service", side_effect=Exception("quota")):
+    with _patch_calendar(creds_error=Exception("quota")):
         from src.tools.calendar import find_free_slots
         result = await find_free_slots.ainvoke({"date": "2026-04-07", "duration_minutes": 30})
     assert "Erro" in result
@@ -115,9 +134,9 @@ async def test_find_free_slots_error_returns_string():
 
 @pytest.mark.asyncio
 async def test_delete_calendar():
-    svc = MagicMock()
+    svc = _make_service()
     svc.calendars.return_value.delete.return_value.execute.return_value = {}
-    with patch("src.tools.calendar.get_calendar_service", return_value=svc):
+    with _patch_calendar(svc):
         from src.tools.calendar import delete_calendar
         result = await delete_calendar.ainvoke({"calendar_id": "cal123"})
     assert "deletada" in result.lower()
@@ -126,9 +145,9 @@ async def test_delete_calendar():
 
 @pytest.mark.asyncio
 async def test_delete_calendar_error_returns_string():
-    svc = MagicMock()
+    svc = _make_service()
     svc.calendars.return_value.delete.return_value.execute.side_effect = Exception("forbidden")
-    with patch("src.tools.calendar.get_calendar_service", return_value=svc):
+    with _patch_calendar(svc):
         from src.tools.calendar import delete_calendar
         result = await delete_calendar.ainvoke({"calendar_id": "cal123"})
     assert "Erro" in result

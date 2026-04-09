@@ -291,6 +291,79 @@ async def test_check_deadlines_handles_http_error(caplog):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# send_all_briefings / check_all_deadlines (DB-based user list)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_send_all_briefings_calls_briefing_for_each_active_user():
+    """send_all_briefings sends a briefing to every active DB user + admin."""
+    mock_briefing = AsyncMock()
+    mock_pref = AsyncMock(return_value="true")
+
+    with (
+        patch(
+            "src.scheduler.jobs._get_active_chat_ids",
+            AsyncMock(return_value=["111", "222"]),
+        ),
+        patch("src.scheduler.jobs.send_daily_briefing", mock_briefing),
+        patch("src.memory.preferences.get_preference", mock_pref),
+    ):
+        from src.scheduler.jobs import send_all_briefings
+
+        await send_all_briefings()
+
+    assert mock_briefing.await_count == 2
+    called_ids = {call.args[0] for call in mock_briefing.call_args_list}
+    assert called_ids == {"111", "222"}
+
+
+@pytest.mark.asyncio
+async def test_send_all_briefings_skips_user_with_briefing_disabled():
+    """send_all_briefings skips users whose briefing_enabled preference is 'false'."""
+    mock_briefing = AsyncMock()
+
+    async def _pref(user_id: str, key: str, default: str = "true") -> str:
+        return "false" if user_id == "222" else "true"
+
+    with (
+        patch(
+            "src.scheduler.jobs._get_active_chat_ids",
+            AsyncMock(return_value=["111", "222"]),
+        ),
+        patch("src.scheduler.jobs.send_daily_briefing", mock_briefing),
+        patch("src.memory.preferences.get_preference", AsyncMock(side_effect=_pref)),
+    ):
+        from src.scheduler.jobs import send_all_briefings
+
+        await send_all_briefings()
+
+    assert mock_briefing.await_count == 1
+    assert mock_briefing.call_args.args[0] == "111"
+
+
+@pytest.mark.asyncio
+async def test_check_all_deadlines_calls_check_for_each_active_user():
+    """check_all_deadlines runs deadline check for every active DB user."""
+    mock_check = AsyncMock()
+
+    with (
+        patch(
+            "src.scheduler.jobs._get_active_chat_ids",
+            AsyncMock(return_value=["111", "222"]),
+        ),
+        patch("src.scheduler.jobs.check_deadlines", mock_check),
+    ):
+        from src.scheduler.jobs import check_all_deadlines
+
+        await check_all_deadlines()
+
+    assert mock_check.await_count == 2
+    called_ids = {call.args[0] for call in mock_check.call_args_list}
+    assert called_ids == {"111", "222"}
+
+
 def test_register_fixed_cron_jobs_adds_two_jobs():
     """register_fixed_cron_jobs registers exactly daily_briefing and deadline_alerts."""
     mock_scheduler = MagicMock()

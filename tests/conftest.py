@@ -22,6 +22,8 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-test-key")
 os.environ.setdefault("GOOGLE_AI_API_KEY", "AIza-test-key")
 os.environ.setdefault("APP_SECRET_KEY", "test-app-secret")
 os.environ.setdefault("APP_PORT", "8000")
+# chat_id 456 is used as default in _telegram_update helpers — make it admin
+os.environ.setdefault("TELEGRAM_CHAT_ID", "456")
 
 # Force lazy settings to reinitialise with the test values.
 import src.config as _cfg  # noqa: E402

@@ -85,7 +85,8 @@ async def test_schedule_event_populates_events_context():
     with (
         patch("src.graph.nodes.classify_intent.get_gemini_flash", return_value=classify_llm),
         patch("src.graph.nodes.plan_action.get_model_for_intent", return_value=plan_llm),
-        patch("src.tools.calendar.get_calendar_service", return_value=mock_svc),
+        patch("src.tools._google_auth.get_credentials", AsyncMock(return_value=MagicMock())),
+        patch("src.tools.calendar.build_calendar_service", return_value=mock_svc),
     ):
         result = await graph.ainvoke(_state("Agendar reunião amanhã"))
 

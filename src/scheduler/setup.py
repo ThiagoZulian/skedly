@@ -99,7 +99,7 @@ def init_scheduler() -> AsyncIOScheduler:
     from src.scheduler.jobs import check_all_deadlines, send_all_briefings
 
     briefing_hour = settings.briefing_hour
-    scheduler.add_job(
+    _scheduler.add_job(
         send_all_briefings,
         trigger="cron",
         hour=briefing_hour,
@@ -109,7 +109,7 @@ def init_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
         misfire_grace_time=300,
     )
-    scheduler.add_job(
+    _scheduler.add_job(
         check_all_deadlines,
         trigger="cron",
         hour=briefing_hour,
