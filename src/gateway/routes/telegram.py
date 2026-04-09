@@ -171,6 +171,36 @@ async def telegram_webhook(
     if not text.strip():
         return {"status": "ignored"}
 
+    # ── Allowlist check ───────────────────────────────────────────────────────
+    allowed: set[str] = set()
+    if settings.allowed_chat_ids:
+        allowed = {cid.strip() for cid in settings.allowed_chat_ids.split(",") if cid.strip()}
+    if settings.telegram_chat_id:
+        allowed.add(settings.telegram_chat_id)
+    if allowed and str(chat_id) not in allowed:
+        logger.warning("Blocked unauthorized user chat_id=%d", chat_id)
+        if settings.telegram_chat_id:
+            try:
+                await _send_telegram_message(
+                    int(settings.telegram_chat_id),
+                    f"⚠️ Acesso bloqueado: chat\\_id `{chat_id}` tentou usar o bot.",
+                )
+            except Exception:
+                pass
+        await _send_telegram_message(chat_id, "Desculpe, você não está autorizado a usar este bot.")
+        return {"status": "ok"}
+
+    # ── /conectar-google command ──────────────────────────────────────────────
+    if text.strip() == "/conectar-google":
+        from src.gateway.routes.auth import create_oauth_state
+        state = await create_oauth_state(user_id)
+        auth_url = f"{settings.app_base_url}/auth/google?state={state}"
+        await _send_telegram_message(
+            chat_id,
+            f"Clique no link para conectar seu Google Calendar:\n{auth_url}\n\n_Link válido por 10 minutos._",
+        )
+        return {"status": "ok"}
+
     # ── Persist chat_id for proactive outbound messages ───────────────────────
     try:
         from src.memory.preferences import set_preference
@@ -190,6 +220,8 @@ async def telegram_webhook(
 
     config = {"configurable": {"thread_id": user_id}}
 
+    from src.tools._google_auth import current_user_id as _current_user_id
+    _ctx_token = _current_user_id.set(user_id)
     try:
         result = await _graph.ainvoke(initial_state, config=config)
         response_text = result.get("response", "Desculpe, não consegui processar sua mensagem.")
@@ -204,6 +236,8 @@ async def telegram_webhook(
     except Exception:
         logger.exception("Graph invocation failed for user=%s", user_id)
         response_text = "Ocorreu um erro interno. Tente novamente em instantes."
+    finally:
+        _current_user_id.reset(_ctx_token)
 
     # ── Persist conversation to DB (fire-and-forget) ──────────────────────────
     try:

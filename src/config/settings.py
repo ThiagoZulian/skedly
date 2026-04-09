@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0", description="Uvicorn host binding")
     app_port: int = Field(default=8000, description="Uvicorn port")
     app_secret_key: str = Field(..., description="App-level secret key for signing")
+    app_base_url: str = Field(
+        default="http://localhost:8000",
+        description="Public HTTPS base URL (used for OAuth redirect URIs)",
+    )
+    allowed_chat_ids: str = Field(
+        default="",
+        description="Comma-separated Telegram chat IDs allowed to use the bot. "
+                    "TELEGRAM_CHAT_ID is always allowed. Empty = owner only.",
+    )
 
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = Field(

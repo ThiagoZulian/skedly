@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
 
-from src.tools._google_auth import get_calendar_service
+from src.tools._google_auth import build_calendar_service, get_credentials
 
 logger = logging.getLogger(__name__)
 _TZ = ZoneInfo("America/Sao_Paulo")
@@ -55,8 +55,13 @@ async def list_calendars() -> str:
         Lista formatada de agendas com ID e nome.
     """
 
+    try:
+        creds = await get_credentials()
+    except Exception as exc:
+        return f"Erro de autenticação: {exc}. Use /conectar-google para autorizar."
+
     def _sync() -> str:
-        service = get_calendar_service()
+        service = build_calendar_service(creds)
         result = service.calendarList().list().execute()
         items = result.get("items", [])
         if not items:
@@ -82,19 +87,33 @@ async def list_events(days_ahead: int = 7, calendar_id: str = "all") -> str:
         days_ahead: Número de dias à frente para buscar (padrão: 7).
         calendar_id: ID da agenda a consultar. Use ``"all"`` para buscar em
             todas as agendas (padrão), ``"primary"`` para a agenda principal,
-            ou um ID específico obtido via ``list_calendars``.
+            um ID específico obtido via ``list_calendars``, ou uma lista de IDs
+            separados por vírgula (ex: ``"primary,id1,id2"``).
 
     Returns:
         Lista formatada de eventos com ID, título, horário e agenda de origem.
     """
+    try:
+        creds = await get_credentials()
+    except Exception as exc:
+        return f"Erro de autenticação: {exc}. Use /conectar-google para autorizar."
 
     def _sync() -> str:
-        service = get_calendar_service()
+        service = build_calendar_service(creds)
         now = datetime.now(_TZ)
         end = now + timedelta(days=days_ahead)
 
         if calendar_id == "all":
             calendars = _get_all_calendar_ids(service)
+        elif "," in calendar_id:
+            # Comma-separated list of calendar IDs (from calendar_filter preference)
+            calendars = []
+            for cid in (c.strip() for c in calendar_id.split(",") if c.strip()):
+                try:
+                    meta = service.calendarList().get(calendarId=cid).execute()
+                    calendars.append((cid, meta.get("summary", cid)))
+                except Exception:
+                    calendars.append((cid, cid))
         else:
             # Single calendar — fetch its name for display
             try:
@@ -169,8 +188,13 @@ async def create_event(
         Confirmação com o ID do evento criado.
     """
 
+    try:
+        creds = await get_credentials()
+    except Exception as exc:
+        return f"Erro de autenticação: {exc}. Use /conectar-google para autorizar."
+
     def _sync() -> str:
-        service = get_calendar_service()
+        service = build_calendar_service(creds)
         body = {
             "summary": title,
             "description": description,
@@ -208,8 +232,13 @@ async def find_free_slots(
         Lista de até 10 horários livres ou mensagem de "sem horários".
     """
 
+    try:
+        creds = await get_credentials()
+    except Exception as exc:
+        return f"Erro de autenticação: {exc}. Use /conectar-google para autorizar."
+
     def _sync() -> str:
-        service = get_calendar_service()
+        service = build_calendar_service(creds)
         day_start = datetime.fromisoformat(f"{date}T08:00:00").replace(tzinfo=_TZ)
         day_end = datetime.fromisoformat(f"{date}T20:00:00").replace(tzinfo=_TZ)
 
@@ -286,8 +315,13 @@ async def delete_event(event_id: str, calendar_id: str = "primary") -> str:
         Confirmação de deleção ou mensagem de erro.
     """
 
+    try:
+        creds = await get_credentials()
+    except Exception as exc:
+        return f"Erro de autenticação: {exc}. Use /conectar-google para autorizar."
+
     def _sync() -> str:
-        service = get_calendar_service()
+        service = build_calendar_service(creds)
         service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
         return f"Evento {event_id} deletado com sucesso."
 
@@ -312,8 +346,13 @@ async def delete_calendar(calendar_id: str) -> str:
         Confirmação de deleção ou mensagem de erro.
     """
 
+    try:
+        creds = await get_credentials()
+    except Exception as exc:
+        return f"Erro de autenticação: {exc}. Use /conectar-google para autorizar."
+
     def _sync() -> str:
-        service = get_calendar_service()
+        service = build_calendar_service(creds)
         service.calendars().delete(calendarId=calendar_id).execute()
         return f"Agenda {calendar_id} deletada com sucesso."
 
@@ -336,8 +375,13 @@ async def create_calendar(name: str, description: str = "") -> str:
         Confirmação com o ID da agenda criada.
     """
 
+    try:
+        creds = await get_credentials()
+    except Exception as exc:
+        return f"Erro de autenticação: {exc}. Use /conectar-google para autorizar."
+
     def _sync() -> str:
-        service = get_calendar_service()
+        service = build_calendar_service(creds)
         body: dict = {"summary": name}
         if description:
             body["description"] = description

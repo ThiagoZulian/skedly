@@ -61,7 +61,8 @@ async def gather_context(state: AgentState) -> dict:
         try:
             from src.tools.calendar import list_events
 
-            context["events"] = await list_events.ainvoke({"days_ahead": 7})
+            cal_filter = context.get("user_preferences", {}).get("calendar_filter", "all")
+            context["events"] = await list_events.ainvoke({"days_ahead": 7, "calendar_id": cal_filter})
         except Exception as exc:
             logger.warning("gather_context: list_events failed: %s", exc)
             context["events"] = f"(Erro ao buscar eventos: {exc})"

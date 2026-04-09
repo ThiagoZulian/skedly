@@ -142,6 +142,43 @@ async def send_reminder_job(reminder_id: int, user_id: str, message: str) -> Non
 # ── Fixed cron jobs ───────────────────────────────────────────────────────────
 
 
+async def send_all_briefings() -> None:
+    """Send daily briefings to all allowed users who haven't disabled them."""
+    from src.config import settings
+    from src.memory.preferences import get_preference
+
+    chat_ids: list[str] = []
+    if settings.allowed_chat_ids:
+        chat_ids = [c.strip() for c in settings.allowed_chat_ids.split(",") if c.strip()]
+    if settings.telegram_chat_id and settings.telegram_chat_id not in chat_ids:
+        chat_ids.insert(0, settings.telegram_chat_id)
+
+    for chat_id in chat_ids:
+        try:
+            if await get_preference(chat_id, "briefing_enabled", default="true") == "false":
+                continue
+            await send_daily_briefing(chat_id)
+        except Exception:
+            logger.exception("send_all_briefings: failed for chat_id=%s", chat_id)
+
+
+async def check_all_deadlines() -> None:
+    """Check deadlines for all allowed users."""
+    from src.config import settings
+
+    chat_ids: list[str] = []
+    if settings.allowed_chat_ids:
+        chat_ids = [c.strip() for c in settings.allowed_chat_ids.split(",") if c.strip()]
+    if settings.telegram_chat_id and settings.telegram_chat_id not in chat_ids:
+        chat_ids.insert(0, settings.telegram_chat_id)
+
+    for chat_id in chat_ids:
+        try:
+            await check_deadlines(chat_id)
+        except Exception:
+            logger.exception("check_all_deadlines: failed for chat_id=%s", chat_id)
+
+
 async def send_daily_briefing(chat_id: str) -> None:
     """Send the daily morning briefing to a Telegram chat.
 
@@ -152,6 +189,8 @@ async def send_daily_briefing(chat_id: str) -> None:
     Args:
         chat_id: Telegram chat/user ID to deliver the briefing to.
     """
+    from src.tools._google_auth import current_user_id as _cu
+    _token = _cu.set(chat_id)
     logger.info("send_daily_briefing: building briefing for chat_id=%s", chat_id)
     try:
         # ── Collect context ───────────────────────────────────────────────────
@@ -200,6 +239,8 @@ async def send_daily_briefing(chat_id: str) -> None:
 
     except Exception:
         logger.exception("send_daily_briefing: failed for chat_id=%s", chat_id)
+    finally:
+        _cu.reset(_token)
 
 
 async def check_deadlines(chat_id: str) -> None:

@@ -15,6 +15,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from src.config import settings
 from src.gateway.limiter import limiter
+from src.gateway.routes import auth as auth_router
 from src.gateway.routes import calendar as calendar_router
 from src.gateway.routes import clickup as clickup_router
 from src.gateway.routes import telegram as telegram_router
@@ -114,6 +115,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
     )
 
 
+app.include_router(auth_router.router)
 app.include_router(telegram_router.router)
 app.include_router(clickup_router.router)
 app.include_router(calendar_router.router)

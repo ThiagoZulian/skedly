@@ -22,7 +22,7 @@ def get_scheduler() -> AsyncIOScheduler:
     return _scheduler
 
 
-def register_fixed_cron_jobs(scheduler: AsyncIOScheduler, chat_id: str) -> None:
+def register_fixed_cron_jobs(scheduler: AsyncIOScheduler, chat_id: str | None = None) -> None:  # noqa: ARG001 — kept for backward compat
     """Register the fixed daily cron jobs for briefing and deadline alerts.
 
     Both jobs run in the America/Sao_Paulo timezone. The briefing fires at
@@ -96,8 +96,30 @@ def init_scheduler() -> AsyncIOScheduler:
     _scheduler.start()
     logger.info("APScheduler started with SQLite job store at %s", _DB_PATH)
 
-    if settings.telegram_chat_id:
-        register_fixed_cron_jobs(_scheduler, settings.telegram_chat_id)
+    from src.scheduler.jobs import check_all_deadlines, send_all_briefings
+
+    briefing_hour = settings.briefing_hour
+    scheduler.add_job(
+        send_all_briefings,
+        trigger="cron",
+        hour=briefing_hour,
+        minute=0,
+        timezone="America/Sao_Paulo",
+        id="daily_briefings",
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+    scheduler.add_job(
+        check_all_deadlines,
+        trigger="cron",
+        hour=briefing_hour,
+        minute=5,
+        timezone="America/Sao_Paulo",
+        id="deadline_alerts",
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+    logger.info("Registered multi-user briefing cron at %02d:00/05 BRT", briefing_hour)
 
     return _scheduler
 
