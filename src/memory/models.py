@@ -40,6 +40,29 @@ class UserPreference(Base):
     value: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class UserGoogleToken(Base):
+    """Per-user Google OAuth token — one row per Telegram user_id."""
+
+    __tablename__ = "user_google_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    token_json: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class OAuthState(Base):
+    """Temporary state tokens that bridge Telegram user_id through the Google OAuth redirect."""
+
+    __tablename__ = "oauth_states"
+
+    state: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Conversation(Base):
     """Archived conversation snapshots (for analytics / future retrieval)."""
 
