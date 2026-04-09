@@ -50,12 +50,6 @@ class Settings(BaseSettings):
         default="http://localhost:8000",
         description="Public HTTPS base URL (used for OAuth redirect URIs)",
     )
-    allowed_chat_ids: str = Field(
-        default="",
-        description="Comma-separated Telegram chat IDs allowed to use the bot. "
-                    "TELEGRAM_CHAT_ID is always allowed. Empty = owner only.",
-    )
-
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = Field(
         default="sqlite:///./data/secretary.db",

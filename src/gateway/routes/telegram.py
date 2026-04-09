@@ -116,6 +116,122 @@ async def _send_telegram_message(chat_id: int, text: str) -> None:
         resp.raise_for_status()
 
 
+# ── Access-control helpers ────────────────────────────────────────────────────
+
+
+async def _check_or_register_user(
+    user_id: str, chat_id: int, first_name: str, username: str | None
+) -> bool:
+    """Check a user's registration status, registering them if new.
+
+    Returns True if the user may proceed, False otherwise (response already sent).
+    """
+    from sqlalchemy import select
+
+    from src.memory.database import get_async_session
+    from src.memory.models import RegisteredUser
+
+    async with get_async_session() as session:
+        row = await session.get(RegisteredUser, user_id)
+
+        if row is None:
+            # New user — save as pending and notify admin
+            session.add(
+                RegisteredUser(
+                    user_id=user_id,
+                    first_name=first_name,
+                    username=username,
+                    status="pending",
+                )
+            )
+            await session.commit()
+            logger.info("Registered new user user_id=%s as pending", user_id)
+
+            # Notify admin
+            if settings.telegram_chat_id:
+                name_display = f"{first_name}"
+                if username:
+                    name_display += f" (@{username})"
+                try:
+                    await _send_telegram_message(
+                        int(settings.telegram_chat_id),
+                        f"⚠️ Novo usuário quer acesso: {name_display} — chat\\_id: `{user_id}`\n"
+                        f"Use `/aprovar {user_id}` ou `/rejeitar {user_id}`",
+                    )
+                except Exception:
+                    logger.warning("Failed to notify admin about new user user_id=%s", user_id)
+
+            await _send_telegram_message(
+                chat_id, "Olá! Seu acesso está aguardando aprovação do administrador. ⏳"
+            )
+            return False
+
+        if row.status == "pending":
+            await _send_telegram_message(
+                chat_id, "Seu acesso ainda está aguardando aprovação. Por favor, aguarde. ⏳"
+            )
+            return False
+
+        if row.status == "blocked":
+            await _send_telegram_message(
+                chat_id,
+                "Desculpe, seu acesso a este bot não foi autorizado.",
+            )
+            return False
+
+        return True  # status == "active"
+
+
+async def _handle_approval(admin_chat_id: int, target_user_id: str, approve: bool) -> None:
+    """Approve or reject a pending user registration.
+
+    Args:
+        admin_chat_id: Chat ID of the admin issuing the command.
+        target_user_id: The user_id to approve or reject.
+        approve: True to approve, False to reject.
+    """
+    from src.memory.database import get_async_session
+    from src.memory.models import RegisteredUser
+
+    async with get_async_session() as session:
+        row = await session.get(RegisteredUser, target_user_id)
+        if row is None:
+            await _send_telegram_message(
+                admin_chat_id, f"❌ Usuário `{target_user_id}` não encontrado."
+            )
+            return
+
+        new_status = "active" if approve else "blocked"
+        row.status = new_status
+        await session.commit()
+
+    action_label = "aprovado" if approve else "rejeitado"
+    logger.info("Admin %s %s user_id=%s", admin_chat_id, action_label, target_user_id)
+
+    # Notify admin
+    emoji = "✅" if approve else "🚫"
+    await _send_telegram_message(
+        admin_chat_id, f"{emoji} Usuário `{target_user_id}` {action_label}."
+    )
+
+    # Notify the user
+    try:
+        if approve:
+            await _send_telegram_message(
+                int(target_user_id),
+                "✅ Seu acesso foi liberado! Pode começar a usar o bot.",
+            )
+        else:
+            await _send_telegram_message(
+                int(target_user_id),
+                "Seu pedido de acesso não foi aprovado pelo administrador.",
+            )
+    except Exception:
+        logger.warning(
+            "_handle_approval: could not notify target user_id=%s", target_user_id
+        )
+
+
 # ── Route ─────────────────────────────────────────────────────────────────────
 
 
@@ -171,24 +287,28 @@ async def telegram_webhook(
     if not text.strip():
         return {"status": "ignored"}
 
-    # ── Allowlist check ───────────────────────────────────────────────────────
-    allowed: set[str] = set()
-    if settings.allowed_chat_ids:
-        allowed = {cid.strip() for cid in settings.allowed_chat_ids.split(",") if cid.strip()}
-    if settings.telegram_chat_id:
-        allowed.add(settings.telegram_chat_id)
-    if allowed and str(chat_id) not in allowed:
-        logger.warning("Blocked unauthorized user chat_id=%d", chat_id)
-        if settings.telegram_chat_id:
-            try:
-                await _send_telegram_message(
-                    int(settings.telegram_chat_id),
-                    f"⚠️ Acesso bloqueado: chat\\_id `{chat_id}` tentou usar o bot.",
-                )
-            except Exception:
-                pass
-        await _send_telegram_message(chat_id, "Desculpe, você não está autorizado a usar este bot.")
+    # ── Admin approval commands (/aprovar <id> and /rejeitar <id>) ────────────
+    is_admin = settings.telegram_chat_id and str(chat_id) == settings.telegram_chat_id
+    if is_admin and text.strip().startswith("/aprovar "):
+        target_id = text.strip().removeprefix("/aprovar ").strip()
+        await _handle_approval(chat_id, target_id, approve=True)
         return {"status": "ok"}
+    if is_admin and text.strip().startswith("/rejeitar "):
+        target_id = text.strip().removeprefix("/rejeitar ").strip()
+        await _handle_approval(chat_id, target_id, approve=False)
+        return {"status": "ok"}
+
+    # ── DB-based access control ───────────────────────────────────────────────
+    # Admin is always active; everyone else must be approved.
+    if not is_admin:
+        access_ok = await _check_or_register_user(
+            user_id=user_id,
+            chat_id=chat_id,
+            first_name=message.from_.first_name if message.from_ else "Desconhecido",
+            username=message.from_.username if message.from_ else None,
+        )
+        if not access_ok:
+            return {"status": "ok"}
 
     # ── /conectar-google command ──────────────────────────────────────────────
     if text.strip() == "/conectar-google":

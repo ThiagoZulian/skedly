@@ -63,6 +63,25 @@ class OAuthState(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RegisteredUser(Base):
+    """Users registered with the bot — tracks approval status."""
+
+    __tablename__ = "registered_users"
+
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    first_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(16), default="pending", nullable=False
+    )  # pending | active | blocked
+    registered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class Conversation(Base):
     """Archived conversation snapshots (for analytics / future retrieval)."""
 

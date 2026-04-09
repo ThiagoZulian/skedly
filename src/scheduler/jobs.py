@@ -142,16 +142,34 @@ async def send_reminder_job(reminder_id: int, user_id: str, message: str) -> Non
 # ── Fixed cron jobs ───────────────────────────────────────────────────────────
 
 
-async def send_all_briefings() -> None:
-    """Send daily briefings to all allowed users who haven't disabled them."""
-    from src.config import settings
-    from src.memory.preferences import get_preference
+async def _get_active_chat_ids() -> list[str]:
+    """Return chat_ids of all active users from the DB, plus the admin if configured."""
+    from sqlalchemy import select
+
+    from src.memory.database import get_async_session
+    from src.memory.models import RegisteredUser
 
     chat_ids: list[str] = []
-    if settings.allowed_chat_ids:
-        chat_ids = [c.strip() for c in settings.allowed_chat_ids.split(",") if c.strip()]
-    if settings.telegram_chat_id and settings.telegram_chat_id not in chat_ids:
-        chat_ids.insert(0, settings.telegram_chat_id)
+    # Admin is always included regardless of DB state
+    if settings.telegram_chat_id:
+        chat_ids.append(settings.telegram_chat_id)
+
+    async with get_async_session() as session:
+        result = await session.execute(
+            select(RegisteredUser.user_id).where(RegisteredUser.status == "active")
+        )
+        for (uid,) in result:
+            if uid not in chat_ids:
+                chat_ids.append(uid)
+
+    return chat_ids
+
+
+async def send_all_briefings() -> None:
+    """Send daily briefings to all active users who haven't disabled them."""
+    from src.memory.preferences import get_preference
+
+    chat_ids = await _get_active_chat_ids()
 
     for chat_id in chat_ids:
         try:
@@ -163,14 +181,8 @@ async def send_all_briefings() -> None:
 
 
 async def check_all_deadlines() -> None:
-    """Check deadlines for all allowed users."""
-    from src.config import settings
-
-    chat_ids: list[str] = []
-    if settings.allowed_chat_ids:
-        chat_ids = [c.strip() for c in settings.allowed_chat_ids.split(",") if c.strip()]
-    if settings.telegram_chat_id and settings.telegram_chat_id not in chat_ids:
-        chat_ids.insert(0, settings.telegram_chat_id)
+    """Check deadlines for all active users."""
+    chat_ids = await _get_active_chat_ids()
 
     for chat_id in chat_ids:
         try:
